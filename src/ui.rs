@@ -47,11 +47,11 @@ impl UiSelect {
         window.set_option("cursorline", true)?;
         window.set_option("wrap", false)?;
 
-        // Setup keymappings that will store selection in z register
-        setup_keymappings(buffer)?;
+        // Create a variable to store the selection
+        api::set_var("ui_select_result", "")?;
 
-        // Clear register z before opening the window
-        api::set_reg("z", "", api::types::RegType::Characterwise)?;
+        // Setup keymappings that will store selection in a variable
+        setup_keymappings(buffer)?;
 
         // Wait for the window to close
         let window_id = window.get_number()?;
@@ -60,8 +60,8 @@ impl UiSelect {
             std::thread::sleep(std::time::Duration::from_millis(50));
         }
 
-        // Check if anything was selected (stored in register z)
-        let selection = api::get_reg("z")?;
+        // Check if anything was selected (stored in the variable)
+        let selection: String = api::get_var("ui_select_result")?;
         if selection.is_empty() {
             Ok(None)
         } else {
@@ -81,7 +81,7 @@ fn setup_keymappings(mut buffer: Buffer) -> Result<()> {
     buffer.set_keymap(
         api::types::Mode::Normal,
         "<CR>",
-        "0\"zY:q!<CR>",
+        ":let g:ui_select_result = getline('.')<CR>:q!<CR>",
         &SetKeymapOpts::builder().noremap(true).silent(true).build(),
     )?;
 
