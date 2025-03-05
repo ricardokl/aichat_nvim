@@ -1,0 +1,687 @@
+
+# nvim_clear_autocmds
+pub fn clear_autocmds(opts: &ClearAutocmdsOpts) -> Result<()> {
+
+# nvim_create_augroup
+pub fn create_augroup(name: &str, opts: &CreateAugroupOpts) -> Result<u32> {
+
+# nvim_create_autocmd
+pub fn create_autocmd<'a, I>(
+    events: I,
+    opts: &CreateAutocmdOpts,
+) -> Result<u32>
+
+# nvim_del_augroup_by_id
+pub fn del_augroup_by_id(id: u32) -> Result<()> {
+
+# nvim_del_augroup_by_name
+pub fn del_augroup_by_name(name: &str) -> Result<()> {
+
+# nvim_del_autocmd
+pub fn del_autocmd(id: u32) -> Result<()> {
+
+# nvim_exec_autocmds
+pub fn exec_autocmds<'a, I>(events: I, opts: &ExecAutocmdsOpts) -> Result<()>
+
+# nvim_get_autocmds
+pub fn get_autocmds(
+    opts: &GetAutocmdsOpts,
+) -> Result<impl SuperIterator<AutocmdInfos>> {
+
+# nvim_buf_attach
+    pub fn attach(
+        &self,
+        send_buffer: bool,
+        opts: &BufAttachOpts,
+    ) -> Result<()> {
+
+# nvim_buf_call
+    pub fn call<F, Res, Ret>(&self, fun: F) -> Result<Ret>
+
+# nvim_buf_del_keymap
+    pub fn del_keymap(&mut self, mode: Mode, lhs: &str) -> Result<()> {
+
+# nvim_buf_del_mark
+    pub fn del_mark(&mut self, name: char) -> Result<()> {
+
+# nvim_buf_del_var
+    pub fn del_var(&mut self, name: &str) -> Result<()> {
+
+# nvim_buf_delete
+    pub fn delete(self, opts: &BufDeleteOpts) -> Result<()> {
+
+# nvim_buf_get_changedtick
+    pub fn get_changedtick(&self) -> Result<u32> {
+
+# nvim_buf_get_keymap
+    pub fn get_keymap(
+        &self,
+        mode: Mode,
+    ) -> Result<impl SuperIterator<KeymapInfos>> {
+
+# nvim_buf_get_lines
+    pub fn get_lines<R>(
+        &self,
+        line_range: R,
+        strict_indexing: bool,
+    ) -> Result<impl SuperIterator<nvim::String>>
+
+# nvim_buf_get_mark
+    pub fn get_mark(&self, name: char) -> Result<(usize, usize)> {
+
+# nvim_buf_get_name
+    pub fn get_name(&self) -> Result<PathBuf> {
+
+# nvim_buf_get_offset
+    pub fn get_offset(&self, index: usize) -> Result<usize> {
+
+# nvim_buf_get_text
+    pub fn get_text<R>(
+        &self,
+        line_range: R,
+        start_col: usize,
+        end_col: usize,
+        opts: &GetTextOpts,
+    ) -> Result<impl SuperIterator<nvim::String>>
+
+# nvim_buf_get_var
+    pub fn get_var<Var>(&self, name: &str) -> Result<Var>
+
+# nvim_buf_is_loaded
+    pub fn is_loaded(&self) -> bool {
+
+# nvim_buf_is_valid
+    pub fn is_valid(&self) -> bool {
+
+# nvim_buf_line_count
+    pub fn line_count(&self) -> Result<usize> {
+
+# nvim_buf_set_keymap
+    pub fn set_keymap(
+        &mut self,
+        mode: Mode,
+        lhs: &str,
+        rhs: &str,
+        opts: &SetKeymapOpts,
+    ) -> Result<()> {
+
+# nvim_buf_set_lines
+    pub fn set_lines<Line, Lines, R>(
+        &mut self,
+        line_range: R,
+        strict_indexing: bool,
+        replacement: Lines,
+    ) -> Result<()>
+
+# nvim_buf_set_mark
+    pub fn set_mark(
+        &mut self,
+        name: char,
+        line: usize,
+        col: usize,
+        opts: &SetMarkOpts,
+    ) -> Result<()> {
+
+# nvim_buf_set_name
+    pub fn set_name<Name: AsRef<Path>>(&mut self, name: Name) -> Result<()> {
+
+# nvim_buf_set_text
+    pub fn set_text<Line, Lines, R>(
+        &mut self,
+        line_range: R,
+        start_col: usize,
+        end_col: usize,
+        replacement: Lines,
+    ) -> Result<()>
+
+# nvim_buf_set_var
+    pub fn set_var<V>(&mut self, name: &str, value: V) -> Result<()>
+
+# nvim_tabpage_del_var
+    pub fn del_var(&mut self, name: &str) -> Result<()> {
+
+# nvim_tabpage_get_number
+    pub fn get_number(&self) -> Result<u32> {
+
+# nvim_tabpage_get_var
+    pub fn get_var<Var>(&self, name: &str) -> Result<Var>
+
+# nvim_tabpage_get_win
+    pub fn get_win(&self) -> Result<Window> {
+
+# nvim_tabpage_is_valid
+    pub fn is_valid(&self) -> bool {
+
+# nvim_tabpage_list_wins
+    pub fn list_wins(&self) -> Result<impl SuperIterator<Window>> {
+
+# nvim_tabpage_set_var
+    pub fn set_var<Var>(&mut self, name: &str, value: Var) -> Result<()>
+
+# nvim_tabpage_set_win
+    pub fn set_win(&mut self, win: &Window) -> Result<()> {
+
+# nvim_open_win
+pub fn open_win(
+    buf: &Buffer,
+    enter: bool,
+    config: &WindowConfig,
+) -> Result<Window> {
+
+# nvim_win_get_config
+    pub fn get_config(&self) -> Result<WindowConfig> {
+
+# nvim_win_get_config
+    pub fn set_config(&mut self, config: &WindowConfig) -> Result<()> {
+
+# nvim_win_get_config
+    pub fn get_config(&self) -> Result<WindowConfig> {
+
+# nvim_win_get_config
+    pub fn set_config(&mut self, config: &WindowConfig) -> Result<()> {
+
+# nvim_call_dict_function
+pub fn call_dict_function<Args, Ret>(
+    dict: &str,
+    func: &str,
+    args: Args,
+) -> Result<Ret>
+
+# nvim_call_function
+pub fn call_function<Args, Ret>(func: &str, args: Args) -> Result<Ret>
+
+# nvim_command
+pub fn command(command: &str) -> Result<()> {
+
+# nvim_eval
+pub fn eval<V>(expr: &str) -> Result<V>
+
+# nvim_eval_statusline
+pub fn eval_statusline(
+    str: &str,
+    opts: &EvalStatuslineOpts,
+) -> Result<StatuslineInfos> {
+
+# nvim_exec2
+pub fn exec2(src: &str, opts: &ExecOpts) -> Result<Option<nvim::String>> {
+
+# nvim_parse_expression
+pub fn parse_expression(
+    expr: &str,
+    flags: &str,
+    include_highlight: bool,
+) -> Result<ParsedVimLExpression> {
+
+# nvim_exec_autocmds
+pub fn exec_autocmds<'a, I>(events: I, opts: &ExecAutocmdsOpts) -> Result<()>
+
+# nvim_exec_autocmds
+pub fn exec_autocmds<'a, I>(events: I, opts: &ExecAutocmdsOpts) -> Result<()>
+
+# nvim_get_current_win
+pub fn get_current_win() -> Window {
+
+# nvim_get_option_info2
+pub fn get_option_info2(name: &str, opts: &OptionOpts) -> Result<OptionInfos> {
+
+# nvim_get_option_value
+pub fn get_option_value<Opt>(name: &str, opts: &OptionOpts) -> Result<Opt>
+
+# nvim_set_option_value
+pub fn set_option_value<Opt>(
+    name: &str,
+    value: Opt,
+    opts: &OptionOpts,
+) -> Result<()>
+
+# nvim_win_call
+    pub fn call<F, Res, Ret>(&self, fun: F) -> Result<Ret>
+
+# nvim_win_close
+    pub fn close(self, force: bool) -> Result<()> {
+
+# nvim_win_del_var
+    pub fn del_var(&mut self, name: &str) -> Result<()> {
+
+# nvim_win_get_buf
+    pub fn get_buf(&self) -> Result<Buffer> {
+
+# nvim_win_get_cursor
+    pub fn get_cursor(&self) -> Result<(usize, usize)> {
+
+# nvim_win_get_height
+    pub fn get_height(&self) -> Result<u32> {
+
+# nvim_win_get_number
+    pub fn get_number(&self) -> Result<u32> {
+
+# nvim_win_get_position
+    pub fn get_position(&self) -> Result<(usize, usize)> {
+
+# nvim_win_get_tabpage
+    pub fn get_tabpage(&self) -> Result<TabPage> {
+
+# nvim_win_get_var
+    pub fn get_var<Var>(&self, name: &str) -> Result<Var>
+
+# nvim_win_get_width
+    pub fn get_width(&self) -> Result<u32> {
+
+# nvim_win_hide
+    pub fn hide(self) -> Result<()> {
+
+# nvim_win_is_valid
+    pub fn is_valid(&self) -> bool {
+
+# nvim_win_set_buf
+    pub fn set_buf(&mut self, buffer: &Buffer) -> Result<()> {
+
+# nvim_win_set_cursor
+    pub fn set_cursor(&mut self, line: usize, col: usize) -> Result<()> {
+
+# nvim_win_set_height
+    pub fn set_height(&mut self, height: u32) -> Result<()> {
+
+# nvim_win_set_hl
+
+# nvim_win_set_var
+    pub fn set_var<Var>(&mut self, name: &str, value: Var) -> Result<()>
+
+# nvim_win_set_width
+    pub fn set_width(&mut self, width: u32) -> Result<()> {
+
+# nvim_win_text_height
+    pub fn text_height(
+        &self,
+        opts: &WinTextHeightOpts,
+    ) -> Result<WinTextHeightInfos> {
+
+# nvim_chan_send
+pub fn chan_send(channel_id: u32, data: &str) -> Result<()> {
+
+# nvim_create_buf
+pub fn create_buf(is_listed: bool, is_scratch: bool) -> Result<Buffer> {
+
+# nvim_del_current_line
+pub fn del_current_line() -> Result<()> {
+
+# nvim_del_keymap
+pub fn del_keymap(mode: Mode, lhs: &str) -> Result<()> {
+
+# nvim_del_mark
+pub fn del_mark(name: char) -> Result<()> {
+
+# nvim_del_var
+pub fn del_var(name: &str) -> Result<()> {
+
+# nvim_echo
+pub fn echo<HlGroup, Text, Chunks>(
+    chunks: Chunks,
+    history: bool,
+    opts: &EchoOpts,
+) -> Result<()>
+
+# nvim_err_write
+pub fn err_write(str: &str) {
+
+# nvim_err_writeln
+pub fn err_writeln(str: &str) {
+
+# nvim_err_writeln
+pub fn err_writeln(str: &str) {
+
+# nvim_eval_statusline
+pub fn eval_statusline(
+    str: &str,
+    opts: &EvalStatuslineOpts,
+) -> Result<StatuslineInfos> {
+
+# nvim_eval_statusline
+pub fn eval_statusline(
+    str: &str,
+    opts: &EvalStatuslineOpts,
+) -> Result<StatuslineInfos> {
+
+# nvim_feedkeys
+pub fn feedkeys(keys: &str, mode: Mode, escape_ks: bool) {
+
+# nvim_get_chan_info
+pub fn get_chan_info(channel_id: u32) -> Result<ChannelInfos> {
+
+# nvim_get_color_by_name
+pub fn get_color_by_name(name: &str) -> Result<u32> {
+
+# nvim_get_color_map
+pub fn get_color_map() -> impl SuperIterator<(String, u32)> {
+
+# nvim_get_context
+pub fn get_context(opts: &GetContextOpts) -> Result<EditorContext> {
+
+# nvim_get_current_buf
+pub fn get_current_buf() -> Buffer {
+
+# nvim_get_current_line
+pub fn get_current_line() -> Result<String> {
+
+# nvim_get_current_tabpage
+pub fn get_current_tabpage() -> TabPage {
+
+# nvim_get_current_win
+
+# nvim_get_current_win
+pub fn get_current_win() -> Window {
+
+# nvim_get_current_win
+pub fn get_current_win() -> Window {
+
+# nvim_get_hl_id_by_name
+pub fn get_hl_id_by_name(name: &str) -> Result<u32> {
+
+# nvim_get_hl_ns
+pub fn get_hl_ns(opts: &GetNamespaceOpts) -> Result<i64> {
+
+# nvim_get_hl_id_by_name
+pub fn get_hl_id_by_name(name: &str) -> Result<u32> {
+
+# nvim_get_hl_id_by_name
+pub fn get_hl_id_by_name(name: &str) -> Result<u32> {
+
+# nvim_get_hl_ns
+pub fn get_hl_ns(opts: &GetNamespaceOpts) -> Result<i64> {
+
+# nvim_get_keymap
+pub fn get_keymap(mode: Mode) -> impl SuperIterator<KeymapInfos> {
+
+# nvim_get_mark
+pub fn get_mark(
+    name: char,
+    opts: &GetMarkOpts,
+) -> Result<(usize, usize, Buffer, String)> {
+
+# nvim_get_mode
+pub fn get_mode() -> Result<GotMode> {
+
+# nvim_get_proc
+pub fn get_proc(pid: u32) -> Result<ProcInfos> {
+
+# nvim_get_proc_children
+pub fn get_proc_children(pid: u32) -> Result<impl SuperIterator<u32>> {
+
+# nvim_get_proc_children
+pub fn get_proc_children(pid: u32) -> Result<impl SuperIterator<u32>> {
+
+# nvim_get_runtime_file
+pub fn get_runtime_file(
+    name: impl AsRef<Path>,
+    get_all: bool,
+) -> Result<impl SuperIterator<PathBuf>> {
+
+# nvim_get_var
+pub fn get_var<Var>(name: &str) -> Result<Var>
+
+# nvim_get_vvar
+pub fn get_vvar<Var>(name: &str) -> Result<Var>
+
+# nvim_input
+pub fn input<Input>(keys: Input) -> Result<usize>
+
+# nvim_input_mouse
+pub fn input_mouse(
+    button: MouseButton,
+    action: MouseAction,
+    modifier: &str,
+    grid: u32,
+    row: usize,
+    col: usize,
+) -> Result<()> {
+
+# nvim_list_bufs
+/// [2]: unloaded/deleted
+
+# nvim_list_bufs
+pub fn list_tabpages() -> impl SuperIterator<TabPage> {
+
+# nvim_list_chans
+pub fn list_chans() -> impl SuperIterator<ChannelInfos> {
+
+# nvim_list_runtime_paths
+pub fn list_runtime_paths() -> Result<impl SuperIterator<PathBuf>> {
+
+# nvim_list_bufs
+/// [2]: unloaded/deleted
+
+# nvim_list_bufs
+pub fn list_tabpages() -> impl SuperIterator<TabPage> {
+
+# nvim_list_uis
+pub fn list_uis() -> impl SuperIterator<UiInfos> {
+
+# nvim_list_wins
+pub fn list_wins() -> impl SuperIterator<Window> {
+
+# nvim_load_context
+pub fn load_context(ctx: EditorContext) {
+
+# nvim_notify
+pub fn notify(
+    msg: &str,
+    log_level: LogLevel,
+    opts: &Dictionary,
+) -> Result<Object> {
+
+# nvim_open_term
+pub fn open_term(buffer: &Buffer, opts: &OpenTermOpts) -> Result<u32> {
+
+# nvim_out_write
+pub fn out_write<Msg>(str: Msg)
+
+# nvim_paste
+pub fn paste<Data>(data: Data, crlf: bool, phase: PastePhase) -> Result<bool>
+
+# nvim_put
+pub fn put<Line, Lines>(
+    lines: Lines,
+    reg_type: RegisterType,
+    after: bool,
+    follow: bool,
+) -> Result<()>
+
+# nvim_replace_termcodes
+pub fn replace_termcodes<Input>(
+    str: Input,
+    from_part: bool,
+    do_lt: bool,
+    special: bool,
+) -> nvim::String
+
+# nvim_select_popupmenu_item
+pub fn select_popupmenu_item(
+    item: usize,
+    insert: bool,
+    finish: bool,
+    opts: &SelectPopupMenuItemOpts,
+) -> Result<()> {
+
+# nvim_set_current_buf
+pub fn set_current_buf(buf: &Buffer) -> Result<()> {
+
+# nvim_set_current_dir
+pub fn set_current_dir<Dir>(dir: Dir) -> Result<()>
+
+# nvim_set_current_line
+pub fn set_current_line<Line>(line: Line) -> Result<()>
+
+# nvim_set_current_tabpage
+pub fn set_current_tabpage(tabpage: &TabPage) -> Result<()> {
+
+# nvim_set_current_win
+pub fn set_current_win(win: &Window) -> Result<()> {
+
+# nvim_set_hl
+pub fn set_hl(ns_id: u32, name: &str, opts: &SetHighlightOpts) -> Result<()> {
+
+# nvim_set_hl_ns_fast
+pub fn set_hl_ns_fast(ns_id: u32) -> Result<()> {
+
+# nvim_set_hl_ns
+pub fn set_hl_ns(ns_id: u32) -> Result<()> {
+
+# nvim_set_keymap
+pub fn set_keymap(
+    mode: Mode,
+    lhs: &str,
+    rhs: &str,
+    opts: &SetKeymapOpts,
+) -> Result<()> {
+
+# nvim_set_var
+pub fn set_var<Var>(name: &str, value: Var) -> Result<()>
+
+# nvim_set_vvar
+pub fn set_vvar<Var>(name: &str, value: Var) -> Result<()>
+
+# nvim_strwidth
+pub fn strwidth(text: &str) -> Result<usize> {
+
+# nvim_create_namespace
+pub fn create_namespace(name: &str) -> u32 {
+
+# nvim_get_namespaces
+pub fn get_namespaces() -> impl SuperIterator<(String, u32)> {
+
+# nvim_set_decoration_provider
+pub fn set_decoration_provider(
+    ns_id: u32,
+    opts: &DecorationProviderOpts,
+) -> Result<()> {
+
+# nvim_buf_add_highlight
+    pub fn add_highlight<R>(
+        &mut self,
+        ns_id: u32,
+        hl_group: &str,
+        line: usize,
+        byte_range: R,
+    ) -> Result<i64>
+
+# nvim_buf_clear_namespace
+    pub fn clear_namespace<R>(
+        &mut self,
+        ns_id: u32,
+        line_range: R,
+    ) -> Result<()>
+
+# nvim_buf_del_extmark
+    pub fn del_extmark(&mut self, ns_id: u32, extmark_id: u32) -> Result<()> {
+
+# nvim_buf_get_extmark_by_id
+    pub fn get_extmark_by_id(
+        &self,
+        ns_id: u32,
+        extmark_id: u32,
+        opts: &GetExtmarkByIdOpts,
+    ) -> Result<(usize, usize, Option<ExtmarkInfos>)> {
+
+# nvim_buf_get_extmarks
+    pub fn get_extmarks(
+        &self,
+        ns_id: u32,
+        start: ExtmarkPosition,
+        end: ExtmarkPosition,
+        opts: &GetExtmarksOpts,
+    ) -> Result<impl SuperIterator<(u32, usize, usize, Option<ExtmarkInfos>)>>
+
+# nvim_buf_set_extmark
+    pub fn set_extmark(
+        &mut self,
+        ns_id: u32,
+        line: usize,
+        col: usize,
+        opts: &SetExtmarkOpts,
+    ) -> Result<u32> {
+
+# nvim_get_all_options_info
+pub fn get_all_options_info() -> Result<impl SuperIterator<OptionInfos>> {
+
+# nvim_get_option_info2
+pub fn get_option_info2(name: &str, opts: &OptionOpts) -> Result<OptionInfos> {
+
+# nvim_get_option_value
+pub fn get_option_value<Opt>(name: &str, opts: &OptionOpts) -> Result<Opt>
+
+# nvim_get_option_value
+pub fn get_option_value<Opt>(name: &str, opts: &OptionOpts) -> Result<Opt>
+
+# nvim_set_option_value
+pub fn set_option_value<Opt>(
+    name: &str,
+    value: Opt,
+    opts: &OptionOpts,
+) -> Result<()>
+
+# nvim_set_option_value
+pub fn set_option_value<Opt>(
+    name: &str,
+    value: Opt,
+    opts: &OptionOpts,
+) -> Result<()>
+
+# nvim_cmd
+pub fn cmd(infos: &CmdInfos, opts: &CmdOpts) -> Result<Option<String>> {
+
+# nvim_create_user_command
+pub fn create_user_command<Cmd>(
+    name: &str,
+    command: Cmd,
+    opts: &CreateCommandOpts,
+) -> Result<()>
+
+    pub fn create_user_command<Cmd>(
+        &mut self,
+        name: &str,
+        command: Cmd,
+        opts: &CreateCommandOpts,
+    ) -> Result<()>
+
+# nvim_del_user_command
+pub fn del_user_command(name: &str) -> Result<()> {
+
+# nvim_get_commands
+pub fn get_commands(
+    opts: &GetCommandsOpts,
+) -> Result<impl SuperIterator<CommandInfos>> {
+
+    pub fn get_commands(
+        &self,
+        opts: &GetCommandsOpts,
+    ) -> Result<impl SuperIterator<CommandInfos>> {
+
+# nvim_parse_cmd
+pub fn parse_cmd(src: &str, opts: &ParseCmdOpts) -> Result<CmdInfos> {
+
+# nvim_buf_create_user_command
+pub fn create_user_command<Cmd>(
+    name: &str,
+    command: Cmd,
+    opts: &CreateCommandOpts,
+) -> Result<()>
+
+    pub fn create_user_command<Cmd>(
+        &mut self,
+        name: &str,
+        command: Cmd,
+        opts: &CreateCommandOpts,
+    ) -> Result<()>
+
+# nvim_buf_del_user_command
+    pub fn del_user_command(&mut self, name: &str) -> Result<()> {
+
+# nvim_buf_get_commands
+pub fn get_commands(
+    opts: &GetCommandsOpts,
+) -> Result<impl SuperIterator<CommandInfos>> {
+
+    pub fn get_commands(
+        &self,
+        opts: &GetCommandsOpts,
+    ) -> Result<impl SuperIterator<CommandInfos>> {
