@@ -12,7 +12,7 @@ impl UiSelect {
         Self { items }
     }
 
-    pub fn show(self, title: String) -> Result<Option<String>> {
+    pub fn show(self, title: String) -> Result<()> {
         // Create a buffer for the window
         let mut buffer = api::create_buf(false, true)?;
 
@@ -25,13 +25,13 @@ impl UiSelect {
 
         // Calculate window dimensions
         let width = self.items.iter().map(|text| text.len()).max().unwrap_or(20) as u32 + 2;
-        let height = std::cmp::min(self.items.len(), 10) as u32;
+        let height = self.items.len() as u32;
 
         // Create window configuration
         let win_config = WindowConfig::builder()
             .relative(api::types::WindowRelativeTo::Editor)
             .width(width)
-            .height(height)
+            .height(height + 1) // Add 1 for the title
             .row(3)
             .col(3)
             .style(api::types::WindowStyle::Minimal)
@@ -52,27 +52,7 @@ impl UiSelect {
 
         // Setup keymappings that will store selection in a variable
         setup_keymappings(buffer)?;
-
-        // Wait for the window to close
-        let window_id = window.get_number()?;
-        while api::win_is_valid(window_id) {
-            api::command("redraw")?;
-            std::thread::sleep(std::time::Duration::from_millis(50));
-        }
-
-        // Check if anything was selected (stored in the variable)
-        let selection: String = api::get_var("ui_select_result")?;
-        if selection.is_empty() {
-            Ok(None)
-        } else {
-            // Find the item that matches the selection
-            let selected_text = selection.trim();
-            Ok(self
-                .items
-                .iter()
-                .find(|&item| item == selected_text)
-                .cloned())
-        }
+        return Ok(());
     }
 }
 
@@ -96,7 +76,7 @@ fn setup_keymappings(mut buffer: Buffer) -> Result<()> {
 }
 
 // Public API
-pub fn ui_select(title: &str, items: Vec<String>) -> Result<Option<String>> {
+pub fn ui_select(title: &str, items: Vec<String>) -> Result<()> {
     let ui = UiSelect::new(items);
     ui.show(title.into())
 }

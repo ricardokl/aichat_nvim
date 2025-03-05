@@ -3,5 +3,8 @@ name = "aichat_nvim"
 version = "0.1.0"
 edition = "2021"
 
+[lib]
+crate-type = ["cdylib"]
+
 [dependencies]
-nvim-oxi = { version = "0.5.1", features = ["neovim-0-10"] }
+nvim-oxi = { version = "0.5.1", features = ["__vendored_luajit", "neovim-0-10"] }
