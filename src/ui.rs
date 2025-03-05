@@ -6,7 +6,7 @@ use nvim_oxi::{
 /// UiSelect provides a floating window UI component for selecting from a list of items
 /// This component creates a bordered window with selectable items and keyboard navigation
 pub struct UiSelect {
-    items: Vec<String>, // Single string per item
+    items: Vec<String>,
 }
 
 impl UiSelect {
@@ -49,20 +49,20 @@ impl UiSelect {
             .relative(api::types::WindowRelativeTo::Editor) // Position relative to editor
             .width(width)
             .height(height + 1) // Add 1 for the title
-            .row(3) // Position from top
-            .col(3) // Position from left
-            .style(api::types::WindowStyle::Minimal) // Minimal UI style
-            .border(api::types::WindowBorder::Rounded) // Rounded border
-            .title(api::types::WindowTitle::SimpleString(title.into())) // Set window title
-            .title_pos(api::types::WindowTitlePosition::Center) // Center the title
+            .row(3)
+            .col(3)
+            .style(api::types::WindowStyle::Minimal)
+            .border(api::types::WindowBorder::Rounded)
+            .title(api::types::WindowTitle::SimpleString(title.into()))
+            .title_pos(api::types::WindowTitlePosition::Center)
             .build();
 
         // Open the window with our buffer and configuration
         let mut window = api::open_win(&buffer, true, &win_config)?;
 
         // Set window options for better UX
-        window.set_option("cursorline", true)?; // Highlight the current line
-        window.set_option("wrap", false)?; // Disable line wrapping
+        window.set_option("cursorline", true)?;
+        window.set_option("wrap", false)?;
 
         // Create a variable to store the selection result
         // This will be populated when user makes a selection
