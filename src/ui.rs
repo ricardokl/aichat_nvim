@@ -44,13 +44,22 @@ impl UiSelect {
         // Height matches the number of items
         let height = self.items.len() as u32;
 
+        // Get the editor dimensions
+        let current_window = api::get_current_win();
+        let width_editor = current_window.get_width()? as u32;
+        let height_editor = current_window.get_height()? as u32;
+
+        // Calculate center position
+        let row = (height_editor - height - 1) / 2;
+        let col = (width_editor - width) / 2;
+
         // Create window configuration for the floating window
         let win_config = WindowConfig::builder()
             .relative(api::types::WindowRelativeTo::Editor) // Position relative to editor
             .width(width)
             .height(height + 1) // Add 1 for the title
-            .row(3)
-            .col(3)
+            .row(row)
+            .col(col)
             .style(api::types::WindowStyle::Minimal)
             .border(api::types::WindowBorder::Rounded)
             .title(api::types::WindowTitle::SimpleString(title.into()))
