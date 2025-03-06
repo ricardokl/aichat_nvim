@@ -1,20 +1,20 @@
-use nvim_oxi::{Dictionary, Function, Object};
+use nvim_oxi::{Dictionary, Function, Object, Result};
 
 mod config;
 mod ui;
 
 #[nvim_oxi::plugin]
-fn aichat_nvim() -> Dictionary {
-    let ui_select = Function::from_fn(|(title, items): (String, Vec<String>)| {
-        let _ = ui::ui_select(&title, items);
-    });
-    
+fn aichat_nvim() -> Result<Dictionary> {
     let show_config = Function::from_fn(|()| {
         let _ = config::show_aichat_config();
     });
 
-    Dictionary::from_iter([
-        ("select", Object::from(ui_select)),
-        ("config", Object::from(show_config))
-    ])
+    let show_config_menu = Function::from_fn(|()| {
+        let _ = config::show_config_menu();
+    });
+
+    Ok(Dictionary::from_iter([
+        ("config", Object::from(show_config)),
+        ("config_menu", Object::from(show_config_menu)),
+    ]))
 }

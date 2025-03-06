@@ -1,8 +1,12 @@
 use nvim_oxi::api::types::LogLevel;
-use nvim_oxi::{api, Error, Result};
+use nvim_oxi::conversion::{Error as ConversionError, FromObject, ToObject};
+use nvim_oxi::serde::{Deserializer, Serializer};
+use nvim_oxi::{api, lua, Error, Object};
 use once_cell::sync::Lazy;
+use serde::{Deserialize, Serialize};
 use std::sync::Mutex;
 
+#[derive(Serialize, Deserialize)]
 pub struct AichatConfig {
     pub mode_flag: Option<Mode>,
     pub mode_arg: Option<Box<str>>,
@@ -21,11 +25,38 @@ impl Clone for AichatConfig {
     }
 }
 
-#[derive(Clone, Copy)]
+#[derive(Serialize, Deserialize, Clone, Copy)]
 pub enum Mode {
     Role,
     Agent,
     Macro,
+}
+
+impl FromObject for AichatConfig {
+    fn from_object(obj: Object) -> Result<Self, ConversionError> {
+        Self::deserialize(Deserializer::new(obj)).map_err(Into::into)
+    }
+}
+
+impl ToObject for AichatConfig {
+    fn to_object(self) -> Result<Object, ConversionError> {
+        self.serialize(Serializer::new()).map_err(Into::into)
+    }
+}
+
+impl lua::Poppable for AichatConfig {
+    unsafe fn pop(lstate: *mut lua::ffi::lua_State) -> Result<Self, lua::Error> {
+        let obj = Object::pop(lstate)?;
+        Self::from_object(obj).map_err(lua::Error::pop_error_from_err::<Self, _>)
+    }
+}
+
+impl lua::Pushable for AichatConfig {
+    unsafe fn push(self, lstate: *mut lua::ffi::lua_State) -> Result<std::ffi::c_int, lua::Error> {
+        self.to_object()
+            .map_err(lua::Error::push_error_from_err::<Self, _>)?
+            .push(lstate)
+    }
 }
 
 // Global static to store the config
@@ -39,7 +70,7 @@ static CONFIG: Lazy<Mutex<AichatConfig>> = Lazy::new(|| {
 });
 
 /// Fetches available options from the aichat CLI tool
-fn fetch_aichat_options(option_type: &str) -> Result<Vec<String>> {
+fn fetch_aichat_options(option_type: &str) -> nvim_oxi::Result<Vec<String>> {
     use std::process::Command;
 
     // Map option type to the appropriate CLI flag
@@ -90,7 +121,7 @@ fn fetch_aichat_options(option_type: &str) -> Result<Vec<String>> {
 }
 
 /// Shows the main configuration menu for aichat
-pub fn show_config_menu() -> Result<()> {
+pub fn show_config_menu() -> nvim_oxi::Result<()> {
     let menu_items = vec![
         "Set Role".to_string(),
         "Set Agent".to_string(),
@@ -125,7 +156,7 @@ pub fn show_config_menu() -> Result<()> {
 }
 
 /// Handles the selection of a specific config option type
-fn handle_config_selection(option_type: &str, mode: Option<Mode>) -> Result<()> {
+fn handle_config_selection(option_type: &str, mode: Option<Mode>) -> nvim_oxi::Result<()> {
     // Fetch options from aichat CLI
     match fetch_aichat_options(option_type) {
         Ok(options) => {
@@ -162,7 +193,18 @@ fn handle_config_selection(option_type: &str, mode: Option<Mode>) -> Result<()> 
 
 /// Updates the AichatConfig with the selected value
 fn update_config(option_type: &str, value: Option<String>, mode: Option<Mode>) {
-    let mut config = CONFIG.lock().unwrap();
+    let mut config = match CONFIG.lock() {
+        Ok(guard) => guard,
+        Err(poisoned) => {
+            api::notify(
+                "Recovering from poisoned mutex",
+                LogLevel::Warn,
+                &Default::default(),
+            )
+            .ok();
+            poisoned.into_inner() // Recover from poisoned state
+        }
+    };
 
     // Notify the user about the change
     let status = if let Some(val) = &value {
@@ -195,12 +237,6 @@ fn update_config(option_type: &str, value: Option<String>, mode: Option<Mode>) {
 }
 
 /// Public API function to show the aichat configuration menu
-pub fn show_aichat_config() -> Result<()> {
+pub fn show_aichat_config() -> nvim_oxi::Result<()> {
     show_config_menu()
-}
-
-/// Get the current configuration
-#[allow(dead_code)]
-pub fn get_config() -> AichatConfig {
-    CONFIG.lock().unwrap().clone()
 }
