@@ -130,14 +130,18 @@ fn handle_config_selection(option_type: &str, mode: Option<Mode>) -> Result<()> 
     match fetch_aichat_options(option_type) {
         Ok(options) => {
             let ui = crate::ui::UiSelect::new(options);
+
+            // Clone option_type to own it inside the closure
+            let option_type_owned = option_type.to_string();
+
             ui.show_with_callback(format!("Select {}", option_type), move |selection| {
                 if let Some(selection) = selection {
                     if selection == "(unset)" {
                         // Unset the config value
-                        update_config(option_type, None, mode);
+                        update_config(&option_type_owned, None, mode);
                     } else {
                         // Set the config value
-                        update_config(option_type, Some(selection), mode);
+                        update_config(&option_type_owned, Some(selection), mode);
                     }
                 }
             })?;
@@ -187,7 +191,7 @@ fn update_config(option_type: &str, value: Option<String>, mode: Option<Mode>) {
         _ => {}
     }
 
-    api::notify(&format!("{}", status), LogLevel::Info, &Default::default());
+    let _ = api::notify(&format!("{}", status), LogLevel::Info, &Default::default());
 }
 
 /// Public API function to show the aichat configuration menu
@@ -196,6 +200,7 @@ pub fn show_aichat_config() -> Result<()> {
 }
 
 /// Get the current configuration
+#[allow(dead_code)]
 pub fn get_config() -> AichatConfig {
     CONFIG.lock().unwrap().clone()
 }
