@@ -8,6 +8,13 @@ fn aichat_nvim() -> Dictionary {
     let ui_select = Function::from_fn(|(title, items): (String, Vec<String>)| {
         let _ = ui::ui_select(&title, items);
     });
+    
+    let show_config = Function::from_fn(|()| {
+        let _ = config::show_aichat_config();
+    });
 
-    Dictionary::from_iter([("select", Object::from(ui_select))])
+    Dictionary::from_iter([
+        ("select", Object::from(ui_select)),
+        ("config", Object::from(show_config))
+    ])
 }

@@ -81,6 +81,91 @@ impl UiSelect {
         setup_keymappings(buffer)?;
         return Ok(());
     }
+
+    /// Displays the selection UI with the given title and calls the provided callback with the selection
+    ///
+    /// # Arguments
+    /// * `title` - The title to display at the top of the selection window
+    /// * `callback` - Function to call with the selected item (or None if cancelled)
+    ///
+    /// # Returns
+    /// * `Result<()>` - Success or error from Neovim operations
+    pub fn show_with_callback<F>(self, title: String, callback: F) -> Result<()> 
+    where
+        F: FnOnce(Option<String>) + 'static + Send
+    {
+        // Create a buffer for the window
+        let mut buffer = api::create_buf(false, true)?;
+
+        // Set buffer lines directly with the items to select from
+        buffer.set_lines(0..1, false, self.items.clone())?;
+
+        // Make buffer read-only to prevent editing the options
+        buffer.set_option("modifiable", false)?;
+        buffer.set_option("buftype", "nofile")?;
+
+        // Calculate window dimensions based on content
+        let width = self.items.iter().map(|text| text.len()).max().unwrap_or(20) as u32 + 2;
+        let height = self.items.len() as u32;
+
+        // Get the editor dimensions
+        let current_window = api::get_current_win();
+        let width_editor = current_window.get_width()? as u32;
+        let height_editor = current_window.get_height()? as u32;
+
+        // Calculate center position
+        let row = (height_editor - height - 1) / 2;
+        let col = (width_editor - width) / 2;
+
+        // Create window configuration for the floating window
+        let win_config = WindowConfig::builder()
+            .relative(api::types::WindowRelativeTo::Editor)
+            .width(width)
+            .height(height + 1)
+            .row(row)
+            .col(col)
+            .style(api::types::WindowStyle::Minimal)
+            .border(api::types::WindowBorder::Rounded)
+            .title(api::types::WindowTitle::SimpleString(title.into()))
+            .title_pos(api::types::WindowTitlePosition::Center)
+            .build();
+
+        // Open the window with our buffer and configuration
+        let mut window = api::open_win(&buffer, true, &win_config)?;
+
+        // Set window options for better UX
+        window.set_option("cursorline", true)?;
+        window.set_option("wrap", false)?;
+
+        // Create a variable to store the selection result
+        api::set_var("ui_select_result", "")?;
+
+        // Setup keymappings for interaction with the selection window
+        setup_keymappings(buffer)?;
+        
+        // Set up an autocmd to handle the selection
+        let augroup_id = api::create_augroup("UiSelectCallback", &api::opts::CreateAugroupOpts::default())?;
+        
+        api::create_autocmd(
+            ["WinClosed"],
+            &api::opts::CreateAutocmdOpts::builder()
+                .group(augroup_id)
+                .callback(move |_| {
+                    let result = api::get_var::<String>("ui_select_result").unwrap_or_default();
+                    let selection = if result.is_empty() { None } else { Some(result) };
+                    
+                    // Call the callback with the selection
+                    callback(selection);
+                    
+                    // Clean up the autocmd group
+                    let _ = api::del_augroup_by_id(augroup_id);
+                    Ok(())
+                })
+                .build(),
+        )?;
+        
+        Ok(())
+    }
 }
 
 /// Sets up key mappings for the selection buffer
