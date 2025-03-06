@@ -160,6 +160,13 @@ fn handle_config_selection(option_type: &str, mode: Option<Mode>) -> Result<()> 
 fn update_config(option_type: &str, value: Option<String>, mode: Option<Mode>) {
     let mut config = CONFIG.lock().unwrap();
 
+    // Notify the user about the change
+    let status = if let Some(val) = &value {
+        format!("Set {} to: {}", option_type, val)
+    } else {
+        format!("Unset {}", option_type)
+    };
+
     match option_type {
         "roles" | "agents" | "macros" => {
             if let Some(mode_val) = mode {
@@ -180,14 +187,7 @@ fn update_config(option_type: &str, value: Option<String>, mode: Option<Mode>) {
         _ => {}
     }
 
-    // Notify the user about the change
-    let status = if let Some(val) = &value {
-        format!("Set {} to: {}", option_type, val)
-    } else {
-        format!("Unset {}", option_type)
-    };
-
-    api::out_write(&format!("{}\n", status));
+    api::notify(&format!("{}", status), LogLevel::Info, &Default::default());
 }
 
 /// Public API function to show the aichat configuration menu
