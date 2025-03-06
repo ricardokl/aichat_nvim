@@ -1,6 +1,6 @@
 use nvim_oxi::{
     api::{self, opts::SetKeymapOpts, types::WindowConfig, Buffer},
-    Result,
+    Error, Result,
 };
 
 /// UiSelect provides a floating window UI component for selecting from a list of items
@@ -78,7 +78,7 @@ impl UiSelect {
         api::set_var("ui_select_result", "")?;
 
         // Setup keymappings for interaction with the selection window
-        setup_keymappings(buffer)?;
+        setup_keymappings_basic(buffer)?;
         return Ok(());
     }
 
@@ -90,9 +90,9 @@ impl UiSelect {
     ///
     /// # Returns
     /// * `Result<()>` - Success or error from Neovim operations
-    pub fn show_with_callback<F>(self, title: String, callback: F) -> Result<()> 
+    pub fn show_with_callback<F>(self, title: String, callback: F) -> Result<()>
     where
-        F: FnOnce(Option<String>) + 'static + Send
+        F: FnOnce(Option<String>) + 'static + Send,
     {
         // Create a buffer for the window
         let mut buffer = api::create_buf(false, true)?;
@@ -137,45 +137,21 @@ impl UiSelect {
         window.set_option("cursorline", true)?;
         window.set_option("wrap", false)?;
 
-        // Create a variable to store the selection result
-        api::set_var("ui_select_result", "")?;
+        // Setup keymappings with callback for interaction with the selection window
+        setup_keymappings_with_callback(buffer, self.items.clone(), callback)?;
 
-        // Setup keymappings for interaction with the selection window
-        setup_keymappings(buffer)?;
-        
-        // Set up an autocmd to handle the selection
-        let augroup_id = api::create_augroup("UiSelectCallback", &api::opts::CreateAugroupOpts::default())?;
-        
-        api::create_autocmd(
-            ["WinClosed"],
-            &api::opts::CreateAutocmdOpts::builder()
-                .group(augroup_id)
-                .callback(move |_| {
-                    let result = api::get_var::<String>("ui_select_result").unwrap_or_default();
-                    let selection = if result.is_empty() { None } else { Some(result) };
-                    
-                    // Call the callback with the selection
-                    callback(selection);
-                    
-                    // Clean up the autocmd group
-                    let _ = api::del_augroup_by_id(augroup_id);
-                    Ok(())
-                })
-                .build(),
-        )?;
-        
         Ok(())
     }
 }
 
-/// Sets up key mappings for the selection buffer
+/// Sets up basic key mappings for the selection buffer (for show method)
 ///
 /// # Arguments
 /// * `buffer` - The buffer to set mappings for
 ///
 /// # Returns
 /// * `Result<()>` - Success or error from Neovim operations
-fn setup_keymappings(mut buffer: Buffer) -> Result<()> {
+fn setup_keymappings_basic(mut buffer: Buffer) -> Result<()> {
     // Handle Enter key (selection)
     // When pressed:
     // 1. Store current line text in g:ui_select_result
@@ -195,6 +171,100 @@ fn setup_keymappings(mut buffer: Buffer) -> Result<()> {
         ":q!<CR>",
         &SetKeymapOpts::builder().noremap(true).silent(true).build(),
     )?;
+    Ok(())
+}
+
+/// Sets up key mappings with callback for the selection buffer
+///
+/// # Arguments
+/// * `buffer` - The buffer to set mappings for
+/// * `items` - The list of selectable items
+/// * `callback` - The callback to call with the selection
+///
+/// # Returns
+/// * `Result<()>` - Success or error from Neovim operations
+fn setup_keymappings_with_callback<F>(
+    mut buffer: Buffer,
+    items: Vec<String>,
+    callback: F,
+) -> Result<()>
+where
+    F: FnOnce(Option<String>) + 'static + Send,
+{
+    // We need to wrap the callback in a Box and then in an Arc to share it between closures
+    use std::sync::{Arc, Mutex};
+    let callback = Arc::new(Mutex::new(Some(
+        Box::new(callback) as Box<dyn FnOnce(Option<String>) + Send>
+    )));
+
+    // Clone for Enter key
+    let enter_callback = callback.clone();
+    let enter_items = items.clone();
+
+    // Handle Enter key (selection) with callback
+    buffer.set_keymap(
+        api::types::Mode::Normal,
+        "<CR>",
+        "",
+        &SetKeymapOpts::builder()
+            .noremap(true)
+            .silent(true)
+            .callback(move |_| {
+                // Get current line number (1-based in Vim)
+                let win = api::get_current_win();
+                if let Ok((row, _)) = win.get_cursor() {
+                    let idx = row as usize - 1; // Convert to 0-based index
+                    if idx < enter_items.len() {
+                        // Take the callback out of the Arc<Mutex> to call it
+                        if let Ok(mut cb_guard) = enter_callback.lock() {
+                            if let Some(cb) = cb_guard.take() {
+                                // Close the window first to avoid UI issues
+                                api::command("q!").ok();
+                                // Call the callback with the selected item
+                                cb(Some(enter_items[idx].clone()));
+                                return Ok::<(), Error>(());
+                            }
+                        }
+                    }
+                }
+
+                // Close the window if we couldn't call the callback
+                api::command("q!").ok();
+                Ok(())
+            })
+            .build(),
+    )?;
+
+    // Clone for Escape key
+    let esc_callback = callback;
+
+    // Handle Escape key (cancel) with callback
+    buffer.set_keymap(
+        api::types::Mode::Normal,
+        "<Esc>",
+        "",
+        &SetKeymapOpts::builder()
+            .noremap(true)
+            .silent(true)
+            .callback(move |_| {
+                // Take the callback out of the Arc<Mutex> to call it
+                if let Ok(mut cb_guard) = esc_callback.lock() {
+                    if let Some(cb) = cb_guard.take() {
+                        // Close the window first to avoid UI issues
+                        api::command("q!").ok();
+                        // Call the callback with None to indicate cancellation
+                        cb(None);
+                        return Ok::<(), Error>(());
+                    }
+                }
+
+                // Close the window if we couldn't call the callback
+                api::command("q!").ok();
+                Ok(())
+            })
+            .build(),
+    )?;
+
     Ok(())
 }
 
