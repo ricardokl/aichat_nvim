@@ -1,5 +1,6 @@
 use nvim_oxi::{Dictionary, Function, Object};
 
+mod config;
 mod ui;
 
 #[nvim_oxi::plugin]

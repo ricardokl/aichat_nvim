@@ -7,6 +7,7 @@ name = "aichat_nvim"
 version = "0.1.0"
 dependencies = [
  "nvim-oxi",
+ "once_cell",
 ]
 
 [[package]]
