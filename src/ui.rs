@@ -5,7 +5,7 @@ use nvim_oxi::{
         types::{LogLevel, WindowConfig},
         Buffer,
     },
-    Error, Result,
+    Result,
 };
 use std::sync::{Arc, Mutex};
 
@@ -133,6 +133,9 @@ where
                     None
                 };
 
+                // Close the current window first to prevent nested window issues
+                api::command("q!").ok();
+
                 // Take the callback out of the Arc<Mutex> to call it
                 let callback_fn = match enter_callback.lock() {
                     Ok(mut guard) => guard.take(),
@@ -148,33 +151,39 @@ where
                     }
                 };
 
-                // Execute the callback with panic protection
+                // Schedule the callback to run in the next event loop iteration
+                // This prevents issues with nested callbacks and window management
                 if let Some(cb) = callback_fn {
-                    let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-                        cb(selected_item);
-                    }));
+                    // Use nvim_oxi::schedule instead of vim.schedule
+                    let selected_clone = selected_item.clone();
+                    nvim_oxi::schedule(move |_| {
+                        let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+                            cb(selected_clone);
+                        }));
 
-                    if let Err(e) = result {
-                        // Convert panic payload to string for error message
-                        let panic_msg = if let Some(s) = e.downcast_ref::<&str>() {
-                            (*s).to_string()
-                        } else if let Some(s) = e.downcast_ref::<String>() {
-                            s.clone()
-                        } else {
-                            "Unknown panic".to_string()
-                        };
+                        if let Err(e) = result {
+                            // Convert panic payload to string for error message
+                            let panic_msg = if let Some(s) = e.downcast_ref::<&str>() {
+                                (*s).to_string()
+                            } else if let Some(s) = e.downcast_ref::<String>() {
+                                s.clone()
+                            } else {
+                                "Unknown panic".to_string()
+                            };
 
-                        api::notify(
-                            &format!("Panic in selection callback: {}", panic_msg),
-                            LogLevel::Error,
-                            &Default::default(),
-                        )
-                        .ok();
-                    }
+                            api::notify(
+                                &format!("Panic in selection callback: {}", panic_msg),
+                                LogLevel::Error,
+                                &Default::default(),
+                            )
+                            .ok();
+                        }
+
+                        Result::Ok(())
+                    })
                 }
 
-                api::command("q!").ok();
-                Ok::<(), Error>(())
+                Result::Ok(())
             })
             .build(),
     )?;

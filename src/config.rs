@@ -167,12 +167,22 @@ fn handle_config_selection(option_type: &str, mode: Option<Mode>) -> nvim_oxi::R
 
             ui.show_with_callback(format!("Select {}", option_type), move |selection| {
                 if let Some(selection) = selection {
-                    if selection == "(unset)" {
+                    let update_result = if selection == "(unset)" {
                         // Unset the config value
-                        update_config(&option_type_owned, None, mode);
+                        update_config(&option_type_owned, None, mode)
                     } else {
                         // Set the config value
-                        update_config(&option_type_owned, Some(selection), mode);
+                        update_config(&option_type_owned, Some(selection), mode)
+                    };
+
+                    // Handle any errors from update_config
+                    if let Err(e) = update_result {
+                        api::notify(
+                            &format!("Failed to update config: {}", e),
+                            LogLevel::Error,
+                            &Default::default(),
+                        )
+                        .ok();
                     }
                 }
             })?;
@@ -184,15 +194,18 @@ fn handle_config_selection(option_type: &str, mode: Option<Mode>) -> nvim_oxi::R
                 &format!("Failed to fetch {} options: {}", option_type, e),
                 LogLevel::Error,
                 &Default::default(),
-            )
-            .ok();
+            )?;
             Err(e)
         }
     }
 }
 
 /// Updates the AichatConfig with the selected value
-fn update_config(option_type: &str, value: Option<String>, mode: Option<Mode>) {
+fn update_config(
+    option_type: &str,
+    value: Option<String>,
+    mode: Option<Mode>,
+) -> nvim_oxi::Result<()> {
     let mut config = match CONFIG.lock() {
         Ok(guard) => guard,
         Err(poisoned) => {
@@ -200,8 +213,7 @@ fn update_config(option_type: &str, value: Option<String>, mode: Option<Mode>) {
                 "Recovering from poisoned mutex",
                 LogLevel::Warn,
                 &Default::default(),
-            )
-            .ok();
+            )?;
             poisoned.into_inner() // Recover from poisoned state
         }
     };
@@ -213,6 +225,7 @@ fn update_config(option_type: &str, value: Option<String>, mode: Option<Mode>) {
         format!("Unset {}", option_type)
     };
 
+    // Update the configuration based on the option type
     match option_type {
         "roles" | "agents" | "macros" => {
             if let Some(mode_val) = mode {
@@ -230,10 +243,18 @@ fn update_config(option_type: &str, value: Option<String>, mode: Option<Mode>) {
         "rags" => {
             config.rag = value.map(|s| s.into_boxed_str());
         }
-        _ => {}
+        _ => {
+            return Err(nvim_oxi::Error::Api(api::Error::Other(format!(
+                "Invalid option type: {}",
+                option_type
+            ))));
+        }
     }
 
-    let _ = api::notify(&format!("{}", status), LogLevel::Info, &Default::default());
+    // Notify the user about the successful update
+    api::notify(&status, LogLevel::Info, &Default::default())?;
+
+    Ok(())
 }
 
 /// Public API function to show the aichat configuration menu
