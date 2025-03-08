@@ -4,6 +4,28 @@ use nvim_oxi::{
 };
 use std::{cell::RefCell, rc::Rc};
 
+/// Opens and configures a window with the given buffer and configuration
+///
+/// # Arguments
+/// * `buffer` - Buffer to display in the window
+/// * `win_config` - Window configuration
+///
+/// # Returns
+/// * `Result<Rc<RefCell<Option<Window>>>>` - Configured window wrapped for callbacks
+fn open_configured_window(
+    buffer: &api::Buffer,
+    win_config: &WindowConfig,
+) -> Result<Rc<RefCell<Option<Window>>>> {
+    let mut window = api::open_win(buffer, true, win_config)?;
+
+    // Configure window options
+    window.set_option("cursorline", true)?;
+    window.set_option("wrap", false)?;
+
+    // Wrap window in Rc<RefCell<Option<Window>>> for the callbacks
+    Ok(Rc::new(RefCell::new(Some(window))))
+}
+
 /// UiSelect provides a floating window UI component for selecting from a list of items
 /// This component creates a bordered window with selectable items and keyboard navigation
 pub struct UiSelect {
@@ -25,8 +47,8 @@ impl UiSelect {
     /// * `title` - The title to display at the top of the selection window
     ///
     /// # Returns
-    /// * `Result<(WindowConfig, u32)>` - Window configuration and height
-    fn create_window_config(&self, title: &str) -> Result<(WindowConfig, u32)> {
+    /// * `Result<WindowConfig>` - Window configuration
+    fn create_window_config(&self, title: &str) -> Result<WindowConfig> {
         // Calculate window dimensions based on content
         let width = self.items.iter().map(|text| text.len()).max().unwrap_or(20) as u32 + 2;
         let height = self.items.len() as u32;
@@ -53,7 +75,7 @@ impl UiSelect {
             .title_pos(api::types::WindowTitlePosition::Center)
             .build();
 
-        Ok((win_config, height))
+        Ok(win_config)
     }
 
     /// Creates and configures a buffer for the selection UI
@@ -74,28 +96,6 @@ impl UiSelect {
         Ok(buffer)
     }
 
-    /// Opens and configures a window with the given buffer and configuration
-    ///
-    /// # Arguments
-    /// * `buffer` - Buffer to display in the window
-    /// * `win_config` - Window configuration
-    ///
-    /// # Returns
-    /// * `Result<Window>` - Configured window
-    fn open_configured_window(
-        &self,
-        buffer: &api::Buffer,
-        win_config: &WindowConfig,
-    ) -> Result<Window> {
-        let mut window = api::open_win(buffer, true, win_config)?;
-
-        // Configure window options
-        window.set_option("cursorline", true)?;
-        window.set_option("wrap", false)?;
-
-        Ok(window)
-    }
-
     /// Displays the selection UI with the given title and calls the provided callback with the selection
     ///
     /// # Arguments
@@ -109,16 +109,13 @@ impl UiSelect {
         F: FnOnce(String) + 'static + Send,
     {
         // Get window configuration
-        let (win_config, _height) = self.create_window_config(title)?;
+        let win_config = self.create_window_config(title)?;
 
         // Create and configure the buffer
         let mut buffer = self.create_configured_buffer()?;
 
-        // Open and configure the window
-        let window = self.open_configured_window(&buffer, &win_config)?;
-
-        // Wrap window in Rc<RefCell<Option<Window>>> for the callbacks
-        let window_rc: Rc<RefCell<Option<Window>>> = Rc::new(RefCell::new(Some(window)));
+        // Open and configure the window, already wrapped in Rc<RefCell<Option<Window>>>
+        let window_rc = open_configured_window(&buffer, &win_config)?;
 
         let items = self.items.clone();
         let w1 = window_rc.clone();
