@@ -4,7 +4,7 @@ use nvim_oxi::{
         opts::CreateCommandOpts,
         types::{CommandArgs, CommandNArgs, LogLevel},
     },
-    string, Dictionary, Function, Object, Result,
+    string, Result,
 };
 
 mod config;
@@ -77,15 +77,9 @@ fn aichat(args: CommandArgs) -> Result<()> {
 }
 
 #[nvim_oxi::plugin]
-fn aichat_nvim() -> Result<Dictionary> {
-    let show_config_menu: Function<(), Result<()>> =
-        Function::from_fn(|()| -> Result<()> { config::show_config_menu() });
-
-    let show_current_config: Function<(), Result<()>> =
-        Function::from_fn(|()| -> Result<()> { config::show_current_config() });
-
+fn aichat_nvim() -> Result<()> {
     let _ = api::create_user_command(
-        "AichatRs",
+        "Aichat",
         aichat,
         &CreateCommandOpts::builder()
             .range(api::types::CommandRange::WholeFile)
@@ -94,8 +88,23 @@ fn aichat_nvim() -> Result<Dictionary> {
             .build(),
     )?;
 
-    Ok(Dictionary::from_iter([
-        ("config_menu", Object::from(show_config_menu)),
-        ("current_config", Object::from(show_current_config)),
-    ]))
+    let _ = api::create_user_command(
+        "AichatSetConfig",
+        |_| config::show_config_menu(),
+        &CreateCommandOpts::builder()
+            .nargs(CommandNArgs::One)
+            .desc("Set the Config for Aichat")
+            .build(),
+    )?;
+
+    let _ = api::create_user_command(
+        "AichatShowConfig",
+        |_| config::show_current_config(),
+        &CreateCommandOpts::builder()
+            .nargs(CommandNArgs::One)
+            .desc("Show the Config for Aichat")
+            .build(),
+    )?;
+
+    Ok(())
 }

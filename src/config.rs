@@ -71,7 +71,7 @@ static CONFIG: Lazy<Mutex<AichatConfig>> = Lazy::new(|| {
 });
 
 /// Gets a reference to the global configuration
-/// 
+///
 /// Returns a guard that will automatically unlock the mutex when dropped
 pub fn get_config() -> std::sync::MutexGuard<'static, AichatConfig> {
     match CONFIG.lock() {
