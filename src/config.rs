@@ -258,7 +258,6 @@ fn update_config(
 }
 
 /// Shows the current aichat configuration in a floating window
-#[allow(dead_code)]
 pub fn show_current_config() -> nvim_oxi::Result<()> {
     // Get the current configuration
     let config = match CONFIG.lock() {
@@ -375,9 +374,4 @@ pub fn show_current_config() -> nvim_oxi::Result<()> {
     )?;
 
     Ok(())
-}
-
-/// Public API function to show the aichat configuration menu
-pub fn show_aichat_config() -> nvim_oxi::Result<()> {
-    show_config_menu()
 }
