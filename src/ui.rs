@@ -220,9 +220,8 @@ impl UiSelect {
 
 /// UiInput provides a floating window UI component for text input
 /// This component creates a bordered window with a prompt and text input field
-pub struct UiInput {
-    prompt: String,
-    default_text: String,
+pub struct UiInput<'a> {
+    prompt: &'a str,
 }
 
 impl UiInput {
@@ -231,11 +230,8 @@ impl UiInput {
     /// # Arguments
     /// * `prompt` - The prompt to display before the input field
     /// * `default_text` - Optional default text to pre-fill in the input field
-    pub fn new(prompt: String, default_text: Option<String>) -> Self {
-        Self {
-            prompt,
-            default_text: default_text.unwrap_or_default(),
-        }
+    pub fn new(prompt: &str) -> Self {
+        Self { prompt }
     }
 
     /// Creates window configuration for the input UI
@@ -284,9 +280,7 @@ impl UiInput {
         // Create a buffer for the window
         let mut buffer = api::create_buf(false, true)?;
 
-        // Set initial content with prompt and default text
-        let initial_content = format!("{} {}", self.prompt, self.default_text);
-        buffer.set_lines(0..1, false, vec![initial_content])?;
+        buffer.set_lines(0..1, false, vec![self.prompt])?;
 
         // Make buffer modifiable
         buffer.set_option("modifiable", true)?;

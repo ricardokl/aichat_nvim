@@ -29,21 +29,17 @@ fn aichat(args: CommandArgs) -> Result<()> {
     if line.is_empty() {
         code = String::new();
     } else {
-        code = string!("```{}\n{}```", ft, line).to_string();
+        code = format!("```{}\n{}```", ft, line.to_string());
     }
 
     // Create input UI component
-    let input = ui::UiInput::new("Enter your prompt:".to_string(), None);
+    let input = ui::UiInput::new("❯".into());
 
     // Show input with callback that concatenates user text with code
     input.show_with_callback("Aichat Prompt", move |user_text| {
-        let complete_prompt = format!("{}\n{}", user_text, code);
+        let _ = api::notify("Sending to Aichat", LogLevel::Info, &Default::default());
 
-        let _ = api::notify(
-            "Sending to Aichat",
-            api::types::LogLevel::Info,
-            &Default::default(),
-        );
+        let complete_prompt = format!("{}\n{}", user_text, code);
         let output = job_runner::run_aichat_command(&config::get_config(), &complete_prompt);
 
         let result = match output {
@@ -61,14 +57,10 @@ fn aichat(args: CommandArgs) -> Result<()> {
         let lines = result.split_terminator("\n");
         match buffer.set_lines(line1 - 1..line2, true, lines) {
             Ok(_) => {
-                let _ = api::notify("Success", api::types::LogLevel::Info, &Default::default());
+                let _ = api::notify("Success", LogLevel::Info, &Default::default());
             }
             Err(_) => {
-                let _ = api::notify(
-                    "Something went wrong",
-                    api::types::LogLevel::Error,
-                    &Default::default(),
-                );
+                let _ = api::notify("Something went wrong", LogLevel::Error, &Default::default());
             }
         }
     })?;
