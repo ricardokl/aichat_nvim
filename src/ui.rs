@@ -1,5 +1,10 @@
 use nvim_oxi::{
-    api::{self, opts::SetKeymapOpts, types::WindowConfig, Error, Window},
+    api::{
+        self,
+        opts::SetKeymapOpts,
+        types::{Mode::Normal as N, WindowConfig},
+        Error, Window,
+    },
     Result,
 };
 use std::{cell::RefCell, rc::Rc};
@@ -24,6 +29,32 @@ fn open_configured_window(
 
     // Wrap window in Rc<RefCell<Option<Window>>> for the callbacks
     Ok(Rc::new(RefCell::new(Some(window))))
+}
+
+/// Helper function to set a keymap with common options
+///
+/// # Arguments
+/// * `buffer` - Buffer to set the keymap on
+/// * `key` - Key to map
+/// * `callback` - Callback function to execute when the key is pressed
+///
+/// # Returns
+/// * `Result<()>` - Success or error from Neovim operations
+fn set_normal_keymap<F>(buffer: &mut api::Buffer, key: &str, callback: F) -> Result<()>
+where
+    F: FnMut(()) -> std::result::Result<(), nvim_oxi::api::Error> + 'static,
+{
+    buffer.set_keymap(
+        N,
+        key,
+        "",
+        &SetKeymapOpts::builder()
+            .noremap(true)
+            .silent(true)
+            .callback(callback)
+            .build(),
+    )?;
+    Ok(())
 }
 
 /// UiSelect provides a floating window UI component for selecting from a list of items
@@ -120,48 +151,35 @@ impl UiSelect {
         let items = self.items.clone();
         let w1 = window_rc.clone();
         let callback_rc = Rc::new(RefCell::new(Some(callback)));
-        buffer.set_keymap(
-            api::types::Mode::Normal,
-            "<CR>",
-            "",
-            &SetKeymapOpts::builder()
-                .noremap(true)
-                .silent(true)
-                .callback(move |_| {
-                    if let Some(win) = w1.borrow_mut().take() {
-                        let row = win.get_cursor()?.0;
-                        let line = items
-                            .get(row - 1)
-                            .ok_or(Error::Other("No lines found".into()))?;
-                        let _ = win.close(false)?;
-                        if let Some(call) = callback_rc.borrow_mut().take() {
-                            call(line.to_owned());
-                        };
-                        Ok(())
-                    } else {
-                        Err(Error::Other("No window found".into()))
-                    }
-                })
-                .build(),
-        )?;
+
+        // Set Enter key mapping
+        set_normal_keymap(&mut buffer, "<CR>", move |_| {
+            if let Some(win) = w1.borrow_mut().take() {
+                let row = win.get_cursor()?.0;
+                let line = items
+                    .get(row - 1)
+                    .ok_or(Error::Other("No lines found".into()))?;
+                let _ = win.close(false)?;
+                if let Some(call) = callback_rc.borrow_mut().take() {
+                    call(line.to_owned());
+                };
+                Ok(())
+            } else {
+                Err(Error::Other("No window found".into()))
+            }
+        })?;
 
         let w2 = window_rc.clone();
-        buffer.set_keymap(
-            api::types::Mode::Normal,
-            "<ESC>",
-            "",
-            &SetKeymapOpts::builder()
-                .noremap(true)
-                .silent(true)
-                .callback(move |_| {
-                    if let Some(win) = w2.borrow_mut().take() {
-                        win.close(false)
-                    } else {
-                        Err(Error::Other("No window found".into()))
-                    }
-                })
-                .build(),
-        )?;
+
+        // Set Escape key mapping
+        set_normal_keymap(&mut buffer, "<ESC>", move |_| {
+            if let Some(win) = w2.borrow_mut().take() {
+                win.close(false)
+            } else {
+                Err(Error::Other("No window found".into()))
+            }
+        })?;
+
         Ok(())
     }
 }
