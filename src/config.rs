@@ -1,3 +1,4 @@
+use crate::ui;
 use nvim_oxi::api::types::LogLevel;
 use nvim_oxi::conversion::{Error as ConversionError, FromObject, ToObject};
 use nvim_oxi::serde::{Deserializer, Serializer};
@@ -83,7 +84,7 @@ fn fetch_aichat_options(option_type: &str) -> nvim_oxi::Result<Vec<String>> {
         _ => {
             let error_msg = "Invalid option type";
             api::notify(error_msg, LogLevel::Error, &Default::default()).ok();
-            return Err(Error::Api(api::Error::Other(error_msg.to_string())));
+            return Err(Error::Api(api::Error::Other(error_msg.into())));
         }
     };
 
@@ -93,7 +94,7 @@ fn fetch_aichat_options(option_type: &str) -> nvim_oxi::Result<Vec<String>> {
         Err(e) => {
             let error_msg = format!("Failed to execute aichat: {}", e);
             api::notify(&error_msg, LogLevel::Error, &Default::default()).ok();
-            return Err(Error::Api(api::Error::Other(error_msg.to_string())));
+            return Err(Error::Api(api::Error::Other(error_msg.into())));
         }
     };
 
@@ -103,7 +104,7 @@ fn fetch_aichat_options(option_type: &str) -> nvim_oxi::Result<Vec<String>> {
             String::from_utf8_lossy(&output.stderr)
         );
         api::notify(&error_msg, LogLevel::Error, &Default::default()).ok();
-        return Err(Error::Api(api::Error::Other(error_msg.to_string())));
+        return Err(Error::Api(api::Error::Other(error_msg.into())));
     }
 
     // Parse the output into lines
@@ -115,7 +116,7 @@ fn fetch_aichat_options(option_type: &str) -> nvim_oxi::Result<Vec<String>> {
         .collect();
 
     // Add an option to unset this config value
-    options.push("(unset)".to_string());
+    options.push("(unset)".into());
 
     Ok(options)
 }
@@ -123,14 +124,14 @@ fn fetch_aichat_options(option_type: &str) -> nvim_oxi::Result<Vec<String>> {
 /// Shows the main configuration menu for aichat
 pub fn show_config_menu() -> nvim_oxi::Result<()> {
     let menu_items = vec![
-        "Set Role".to_string(),
-        "Set Agent".to_string(),
-        "Set Macro".to_string(),
-        "Set Session".to_string(),
-        "Set RAG".to_string(),
+        "Set Role",
+        "Set Agent",
+        "Set Macro",
+        "Set Session",
+        "Set RAG",
     ];
 
-    let ui = crate::ui::UiSelect::new(menu_items);
+    let ui: ui::UiSelect = menu_items.into();
     ui.show_with_callback("Aichat Configuration", |selection| {
         match selection.as_str() {
             "Set Role" => handle_config_selection("roles", Some(Mode::Role)),
@@ -161,7 +162,7 @@ fn handle_config_selection(option_type: &str, mode: Option<Mode>) -> nvim_oxi::R
             let ui = crate::ui::UiSelect::new(options);
 
             // Clone option_type to own it inside the closure
-            let option_type_owned = option_type.to_string();
+            let option_type_owned: String = option_type.into();
 
             ui.show_with_callback(
                 format!("Select {}", option_type).as_str(),
@@ -277,8 +278,8 @@ pub fn show_current_config() -> nvim_oxi::Result<()> {
 
     // Prepare the content lines
     let mut lines = Vec::new();
-    lines.push("Current Aichat Configuration:".to_string());
-    lines.push("".to_string());
+    lines.push("Current Aichat Configuration:".into());
+    lines.push("".into());
 
     // Add mode configuration
     if let Some(mode) = config.mode_flag {
@@ -294,21 +295,21 @@ pub fn show_current_config() -> nvim_oxi::Result<()> {
             lines.push(format!("Mode: {}", mode_str));
         }
     } else {
-        lines.push("Mode: Not set".to_string());
+        lines.push("Mode: Not set".into());
     }
 
     // Add RAG configuration
     if let Some(rag) = &config.rag {
         lines.push(format!("RAG: {}", rag));
     } else {
-        lines.push("RAG: Not set".to_string());
+        lines.push("RAG: Not set".into());
     }
 
     // Add session configuration
     if let Some(session) = &config.session {
         lines.push(format!("Session: {}", session));
     } else {
-        lines.push("Session: Not set".to_string());
+        lines.push("Session: Not set".into());
     }
 
     // Calculate window dimensions

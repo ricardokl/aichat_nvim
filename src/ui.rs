@@ -63,6 +63,14 @@ pub struct UiSelect {
     items: Vec<String>,
 }
 
+impl From<Vec<&str>> for UiSelect {
+    fn from(items: Vec<&str>) -> Self {
+        Self {
+            items: items.into_iter().map(String::from).collect(),
+        }
+    }
+}
+
 impl UiSelect {
     /// Creates a new UiSelect instance with the provided items
     ///
