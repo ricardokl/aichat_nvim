@@ -20,30 +20,31 @@ fn aichat(args: CommandArgs) -> Result<()> {
         .extension()
         .map(|x| x.to_string_lossy().to_string())
         .unwrap_or("".into());
-    let line: Result<nvim_oxi::String> = buffer
+    let line_result: Result<nvim_oxi::String> = buffer
         .get_lines(line1 - 1..line2, true)?
         .reduce(|acc: nvim_oxi::String, e: nvim_oxi::String| string!("{}\n{}", acc, e))
         .ok_or(api::Error::Other("No lines found".into()).into());
-    let code = string!("```{}\n{}```", ft, line?.to_string_lossy());
+    let line = line_result?;
+    let code: String;
+    if line.is_empty() {
+        code = String::new();
+    } else {
+        code = string!("```{}\n{}```", ft, line).to_string();
+    }
 
-    let _ = api::notify(
-        code.to_str()
-            .map_err(|_| api::Error::Other("Could not convert to str".into()))?,
-        api::types::LogLevel::Info,
-        &Default::default(),
-    );
-    Ok(())
-}
+    // Create input UI component
+    let input = ui::UiInput::new("Enter your prompt:".to_string(), None);
 
-fn show_input_demo() -> Result<()> {
-    let input = ui::UiInput::new("Enter text:".to_string(), None);
+    // Show input with callback that concatenates user text with code
+    input.show_with_callback("Aichat Prompt", move |user_text| {
+        let complete_prompt = format!("{}\n{}", user_text, code);
+        let output = job_runner::run_aichat_command(config::CONFIG, &complete_prompt);
 
-    input.show_with_callback("Input Demo", |text| {
-        let _ = api::notify(
-            &format!("You entered: {}", text),
-            api::types::LogLevel::Info,
-            &Default::default(),
-        );
+        //let _ = api::notify(
+        //    &complete_prompt,
+        //    api::types::LogLevel::Info,
+        //    &Default::default(),
+        //);
     })?;
 
     Ok(())
@@ -56,9 +57,6 @@ fn aichat_nvim() -> Result<Dictionary> {
 
     let show_current_config: Function<(), Result<()>> =
         Function::from_fn(|()| -> Result<()> { config::show_current_config() });
-
-    let show_input_demo: Function<(), Result<()>> =
-        Function::from_fn(|()| -> Result<()> { show_input_demo() });
 
     let _ = api::create_user_command(
         "AichatRs",
@@ -73,6 +71,5 @@ fn aichat_nvim() -> Result<Dictionary> {
     Ok(Dictionary::from_iter([
         ("config_menu", Object::from(show_config_menu)),
         ("current_config", Object::from(show_current_config)),
-        ("input_demo", Object::from(show_input_demo)),
     ]))
 }

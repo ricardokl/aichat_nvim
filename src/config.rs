@@ -61,7 +61,7 @@ impl lua::Pushable for AichatConfig {
 }
 
 // Global static to store the config
-static CONFIG: Lazy<Mutex<AichatConfig>> = Lazy::new(|| {
+pub static CONFIG: Lazy<Mutex<AichatConfig>> = Lazy::new(|| {
     Mutex::new(AichatConfig {
         mode_flag: None,
         mode_arg: None,
