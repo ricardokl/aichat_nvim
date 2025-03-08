@@ -61,7 +61,7 @@ impl lua::Pushable for AichatConfig {
 }
 
 // Global static to store the config
-pub static CONFIG: Lazy<Mutex<AichatConfig>> = Lazy::new(|| {
+static CONFIG: Lazy<Mutex<AichatConfig>> = Lazy::new(|| {
     Mutex::new(AichatConfig {
         mode_flag: None,
         mode_arg: None,
@@ -69,6 +69,19 @@ pub static CONFIG: Lazy<Mutex<AichatConfig>> = Lazy::new(|| {
         session: None,
     })
 });
+
+/// Gets a reference to the global configuration
+/// 
+/// Returns a guard that will automatically unlock the mutex when dropped
+pub fn get_config() -> std::sync::MutexGuard<'static, AichatConfig> {
+    match CONFIG.lock() {
+        Ok(guard) => guard,
+        Err(poisoned) => {
+            // Recover from poisoned state
+            poisoned.into_inner()
+        }
+    }
+}
 
 /// Fetches available options from the aichat CLI tool
 fn fetch_aichat_options(option_type: &str) -> nvim_oxi::Result<Vec<String>> {
@@ -206,17 +219,7 @@ fn update_config(
     value: Option<String>,
     mode: Option<Mode>,
 ) -> nvim_oxi::Result<()> {
-    let mut config = match CONFIG.lock() {
-        Ok(guard) => guard,
-        Err(poisoned) => {
-            //api::notify(
-            //    "Recovering from poisoned mutex",
-            //    LogLevel::Warn,
-            //    &Default::default(),
-            //)?;
-            poisoned.into_inner() // Recover from poisoned state
-        }
-    };
+    let mut config = get_config();
 
     //Notify the user about the change
     let status = if let Some(val) = &value {
@@ -260,17 +263,7 @@ fn update_config(
 /// Shows the current aichat configuration in a floating window
 pub fn show_current_config() -> nvim_oxi::Result<()> {
     // Get the current configuration
-    let config = match CONFIG.lock() {
-        Ok(guard) => guard,
-        Err(poisoned) => {
-            api::notify(
-                "Recovering from poisoned mutex",
-                LogLevel::Warn,
-                &Default::default(),
-            )?;
-            poisoned.into_inner() // Recover from poisoned state
-        }
-    };
+    let config = get_config();
 
     // Create a buffer for the window
     let mut buffer = api::create_buf(false, true)?;

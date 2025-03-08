@@ -38,7 +38,7 @@ fn aichat(args: CommandArgs) -> Result<()> {
     // Show input with callback that concatenates user text with code
     input.show_with_callback("Aichat Prompt", move |user_text| {
         let complete_prompt = format!("{}\n{}", user_text, code);
-        let output = job_runner::run_aichat_command(config::CONFIG, &complete_prompt);
+        let output = job_runner::run_aichat_command(&config::get_config(), &complete_prompt);
 
         //let _ = api::notify(
         //    &complete_prompt,
