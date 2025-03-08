@@ -316,12 +316,6 @@ impl UiInput {
         // Open and configure the window
         let window_rc = open_configured_window(&buffer, &win_config)?;
 
-        // Position cursor at the end of the prompt
-        if let Some(mut window) = window_rc.borrow_mut().take() {
-            let prompt_len = self.prompt.len() + 1;
-            window.set_cursor(1, prompt_len)?;
-        }
-
         // Enter insert mode
         api::command("startinsert!")?;
 
@@ -329,70 +323,67 @@ impl UiInput {
         let callback_rc = Rc::new(RefCell::new(Some(callback)));
 
         // Set Enter key mapping for insert mode
-        {
-            let w = window_rc.clone();
-            let callback_clone = callback_rc.clone();
+        let w = window_rc.clone();
+        let callback_clone1 = callback_rc.clone();
 
-            set_insert_keymap(&mut buffer, "<CR>", move |_| {
-                if let Some(win) = w.borrow_mut().take() {
-                    // Get the current line content
-                    let mut lines = win.get_buf()?.get_lines(0..1, false)?;
-                    let input_line = lines.next().ok_or(Error::Other("No input found".into()))?;
+        set_insert_keymap(&mut buffer, "<CR>", move |_| {
+            if let Some(win) = w.borrow_mut().take() {
+                // Get the current line content
+                let mut lines = win.get_buf()?.get_lines(0..1, false)?;
+                let input_line = lines.next().ok_or(Error::Other("No input found".into()))?;
 
-                    // Extract the input text (remove the prompt)
-                    let input_text = if input_line.len() > prompt_len {
-                        input_line.to_string_lossy()[prompt_len..].to_string()
-                    } else {
-                        String::new()
-                    };
-
-                    // Close the window
-                    let _ = win.close(false)?;
-
-                    // Exit insert mode
-                    api::command("stopinsert")?;
-
-                    // Call the callback with the input text
-                    if let Some(call) = callback_clone.borrow_mut().take() {
-                        call(input_text);
-                    };
-                    Ok(())
+                // Extract the input text (remove the prompt)
+                let input_text = if input_line.len() > prompt_len {
+                    input_line.to_string_lossy()[prompt_len..].to_string()
                 } else {
-                    Err(Error::Other("No window found".into()))
-                }
-            })?;
-        }
+                    String::new()
+                };
+
+                // Close the window
+                let _ = win.close(false)?;
+
+                // Exit insert mode
+                api::command("stopinsert")?;
+
+                // Call the callback with the input text
+                if let Some(call) = callback_clone1.borrow_mut().take() {
+                    call(input_text);
+                };
+                Ok(())
+            } else {
+                Err(Error::Other("No window found".into()))
+            }
+        })?;
 
         // Set Enter key mapping for normal mode
-        {
-            let w = window_rc.clone();
+        let w1 = window_rc.clone();
+        let callback_clone2 = callback_rc.clone();
 
-            set_normal_keymap(&mut buffer, "<CR>", move |_| {
-                if let Some(win) = w.borrow_mut().take() {
-                    // Get the current line content
-                    let mut lines = win.get_buf()?.get_lines(0..1, false)?;
-                    let input_line = lines.next().ok_or(Error::Other("No input found".into()))?;
+        set_normal_keymap(&mut buffer, "<CR>", move |_| {
+            if let Some(win) = w1.borrow_mut().take() {
+                // Get the current line content
+                let mut lines = win.get_buf()?.get_lines(0..1, false)?;
+                let input_line = lines.next().ok_or(Error::Other("No input found".into()))?;
 
-                    // Extract the input text (remove the prompt)
-                    let input_text = if input_line.len() > prompt_len {
-                        input_line.to_string_lossy()[prompt_len..].to_string()
-                    } else {
-                        String::new()
-                    };
-
-                    // Close the window
-                    let _ = win.close(false)?;
-
-                    // Call the callback with the input text
-                    if let Some(call) = callback_rc.borrow_mut().take() {
-                        call(input_text);
-                    };
-                    Ok(())
+                // Extract the input text (remove the prompt)
+                let input_text = if input_line.len() > prompt_len {
+                    input_line.to_string_lossy()[prompt_len..].to_string()
                 } else {
-                    Err(Error::Other("No window found".into()))
-                }
-            })?;
-        }
+                    String::new()
+                };
+
+                // Close the window
+                let _ = win.close(false)?;
+
+                // Call the callback with the input text
+                if let Some(call) = callback_clone2.borrow_mut().take() {
+                    call(input_text);
+                };
+                Ok(())
+            } else {
+                Err(Error::Other("No window found".into()))
+            }
+        })?;
 
         let w2 = window_rc.clone();
 
@@ -400,7 +391,6 @@ impl UiInput {
         set_normal_keymap(&mut buffer, "<ESC>", move |_| {
             if let Some(win) = w2.borrow_mut().take() {
                 // Exit insert mode
-                api::command("stopinsert")?;
                 win.close(false)
             } else {
                 Err(Error::Other("No window found".into()))

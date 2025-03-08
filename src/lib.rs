@@ -35,6 +35,20 @@ fn aichat(args: CommandArgs) -> Result<()> {
     Ok(())
 }
 
+fn show_input_demo() -> Result<()> {
+    let input = ui::UiInput::new("Enter text:".to_string(), None);
+
+    input.show_with_callback("Input Demo", |text| {
+        let _ = api::notify(
+            &format!("You entered: {}", text),
+            api::types::LogLevel::Info,
+            &Default::default(),
+        );
+    })?;
+
+    Ok(())
+}
+
 #[nvim_oxi::plugin]
 fn aichat_nvim() -> Result<Dictionary> {
     let show_config_menu: Function<(), Result<()>> =
@@ -42,6 +56,9 @@ fn aichat_nvim() -> Result<Dictionary> {
 
     let show_current_config: Function<(), Result<()>> =
         Function::from_fn(|()| -> Result<()> { config::show_current_config() });
+
+    let show_input_demo: Function<(), Result<()>> =
+        Function::from_fn(|()| -> Result<()> { show_input_demo() });
 
     let _ = api::create_user_command(
         "AichatRs",
@@ -56,5 +73,6 @@ fn aichat_nvim() -> Result<Dictionary> {
     Ok(Dictionary::from_iter([
         ("config_menu", Object::from(show_config_menu)),
         ("current_config", Object::from(show_current_config)),
+        ("input_demo", Object::from(show_input_demo)),
     ]))
 }
