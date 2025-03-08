@@ -56,6 +56,46 @@ impl UiSelect {
         Ok((win_config, height))
     }
 
+    /// Creates and configures a buffer for the selection UI
+    ///
+    /// # Returns
+    /// * `Result<api::Buffer>` - Configured buffer
+    fn create_configured_buffer(&self) -> Result<api::Buffer> {
+        // Create a buffer for the window
+        let mut buffer = api::create_buf(false, true)?;
+
+        // Set buffer lines directly with the items to select from
+        buffer.set_lines(0..1, false, self.items.clone())?;
+
+        // Make buffer read-only to prevent editing the options
+        buffer.set_option("modifiable", false)?;
+        buffer.set_option("buftype", "nofile")?;
+
+        Ok(buffer)
+    }
+
+    /// Opens and configures a window with the given buffer and configuration
+    ///
+    /// # Arguments
+    /// * `buffer` - Buffer to display in the window
+    /// * `win_config` - Window configuration
+    ///
+    /// # Returns
+    /// * `Result<Window>` - Configured window
+    fn open_configured_window(
+        &self,
+        buffer: &api::Buffer,
+        win_config: &WindowConfig,
+    ) -> Result<Window> {
+        let mut window = api::open_win(buffer, true, win_config)?;
+
+        // Configure window options
+        window.set_option("cursorline", true)?;
+        window.set_option("wrap", false)?;
+
+        Ok(window)
+    }
+
     /// Displays the selection UI with the given title and calls the provided callback with the selection
     ///
     /// # Arguments
@@ -71,33 +111,17 @@ impl UiSelect {
         // Get window configuration
         let (win_config, _height) = self.create_window_config(title)?;
 
-        // Create a buffer for the window
-        let mut buffer = api::create_buf(false, true)?;
+        // Create and configure the buffer
+        let mut buffer = self.create_configured_buffer()?;
 
-        // Set buffer lines directly with the items to select from
-        buffer.set_lines(0..1, false, self.items.clone())?;
+        // Open and configure the window
+        let window = self.open_configured_window(&buffer, &win_config)?;
 
-        // Make buffer read-only to prevent editing the options
-        buffer.set_option("modifiable", false)?;
-        buffer.set_option("buftype", "nofile")?;
-
-        let window: Rc<RefCell<Option<Window>>> = Rc::new(RefCell::new(Some(api::open_win(
-            &buffer,
-            true,
-            &win_config,
-        )?)));
-
-        // Wrap in brackets so that borrow ends
-        {
-            let mut w = window.borrow_mut();
-            if let Some(ref mut win) = w.as_mut() {
-                win.set_option("cursorline", true)?;
-                win.set_option("wrap", false)?;
-            }
-        }
+        // Wrap window in Rc<RefCell<Option<Window>>> for the callbacks
+        let window_rc: Rc<RefCell<Option<Window>>> = Rc::new(RefCell::new(Some(window)));
 
         let items = self.items.clone();
-        let w1 = window.clone();
+        let w1 = window_rc.clone();
         let callback_rc = Rc::new(RefCell::new(Some(callback)));
         buffer.set_keymap(
             api::types::Mode::Normal,
@@ -124,7 +148,7 @@ impl UiSelect {
                 .build(),
         )?;
 
-        let w2 = window.clone();
+        let w2 = window_rc.clone();
         buffer.set_keymap(
             api::types::Mode::Normal,
             "<ESC>",
