@@ -2,7 +2,7 @@ use nvim_oxi::{
     api::{
         self,
         opts::CreateCommandOpts,
-        types::{CommandArgs, CommandNArgs},
+        types::{CommandArgs, CommandNArgs, LogLevel},
     },
     string, Dictionary, Function, Object, Result,
 };
@@ -14,7 +14,7 @@ mod ui;
 fn aichat(args: CommandArgs) -> Result<()> {
     let line1 = args.line1;
     let line2 = args.line2;
-    let buffer = api::get_current_buf();
+    let mut buffer = api::get_current_buf();
     let ft = buffer
         .get_name()?
         .extension()
@@ -38,13 +38,39 @@ fn aichat(args: CommandArgs) -> Result<()> {
     // Show input with callback that concatenates user text with code
     input.show_with_callback("Aichat Prompt", move |user_text| {
         let complete_prompt = format!("{}\n{}", user_text, code);
+
+        let _ = api::notify(
+            "Sending to Aichat",
+            api::types::LogLevel::Info,
+            &Default::default(),
+        );
         let output = job_runner::run_aichat_command(&config::get_config(), &complete_prompt);
 
-        //let _ = api::notify(
-        //    &complete_prompt,
-        //    api::types::LogLevel::Info,
-        //    &Default::default(),
-        //);
+        let result = match output {
+            Ok(result) => result,
+            Err(err) => {
+                let _ = api::notify(
+                    &format!("Error running Aichat command: {}", err),
+                    LogLevel::Error,
+                    &Default::default(),
+                );
+                return;
+            }
+        };
+
+        let lines = result.split_terminator("\n");
+        match buffer.set_lines(line1 - 1..line2, true, lines) {
+            Ok(_) => {
+                let _ = api::notify("Success", api::types::LogLevel::Info, &Default::default());
+            }
+            Err(_) => {
+                let _ = api::notify(
+                    "Something went wrong",
+                    api::types::LogLevel::Error,
+                    &Default::default(),
+                );
+            }
+        }
     })?;
 
     Ok(())
