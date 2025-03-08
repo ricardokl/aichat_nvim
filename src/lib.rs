@@ -78,6 +78,7 @@ fn aichat(args: CommandArgs) -> Result<()> {
 
 #[nvim_oxi::plugin]
 fn aichat_nvim() -> Result<()> {
+    // Create command to run Aichat with the selected text
     let _ = api::create_user_command(
         "Aichat",
         aichat,
@@ -88,20 +89,22 @@ fn aichat_nvim() -> Result<()> {
             .build(),
     )?;
 
+    // Create command to set Aichat configuration
     let _ = api::create_user_command(
         "AichatSetConfig",
         |_| config::show_config_menu(),
         &CreateCommandOpts::builder()
-            .nargs(CommandNArgs::One)
+            .nargs(CommandNArgs::Zero)
             .desc("Set the Config for Aichat")
             .build(),
     )?;
 
+    // Create command to display current Aichat configuration
     let _ = api::create_user_command(
         "AichatShowConfig",
         |_| config::show_current_config(),
         &CreateCommandOpts::builder()
-            .nargs(CommandNArgs::One)
+            .nargs(CommandNArgs::Zero)
             .desc("Show the Config for Aichat")
             .build(),
     )?;
