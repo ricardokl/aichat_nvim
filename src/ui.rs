@@ -1,13 +1,8 @@
 use nvim_oxi::{
-    api::{
-        self,
-        opts::SetKeymapOpts,
-        types::{LogLevel, WindowConfig},
-        Buffer,
-    },
+    api::{self, opts::SetKeymapOpts, types::WindowConfig, Error, Window},
     Result,
 };
-use std::sync::{Arc, Mutex};
+use std::{cell::RefCell, rc::Rc};
 
 /// UiSelect provides a floating window UI component for selecting from a list of items
 /// This component creates a bordered window with selectable items and keyboard navigation
@@ -36,16 +31,6 @@ impl UiSelect {
     where
         F: FnOnce(Option<String>) + 'static + Send,
     {
-        // Create a buffer for the window
-        let mut buffer = api::create_buf(false, true)?;
-
-        // Set buffer lines directly with the items to select from
-        buffer.set_lines(0..1, false, self.items.clone())?;
-
-        // Make buffer read-only to prevent editing the options
-        buffer.set_option("modifiable", false)?;
-        buffer.set_option("buftype", "nofile")?;
-
         // Calculate window dimensions based on content
         let width = self.items.iter().map(|text| text.len()).max().unwrap_or(20) as u32 + 2;
         let height = self.items.len() as u32;
@@ -73,128 +58,111 @@ impl UiSelect {
             .build();
 
         // Open the window with our buffer and configuration
-        let mut window = api::open_win(&buffer, true, &win_config)?;
+        //let mut window = api::open_win(&buffer, true, &win_config)?;
+
+        // Create a buffer for the window
+        let mut buffer = api::create_buf(false, true)?;
+
+        // Set buffer lines directly with the items to select from
+        buffer.set_lines(0..1, false, self.items.clone())?;
+
+        // Make buffer read-only to prevent editing the options
+        buffer.set_option("modifiable", false)?;
+        buffer.set_option("buftype", "nofile")?;
+
+        let window: Rc<RefCell<Option<Window>>> = Rc::new(RefCell::new(Some(api::open_win(
+            &buffer,
+            true,
+            &win_config,
+        )?)));
+
+        // Wrap in brackets so that borrow ends
+        {
+            let mut w = window.borrow_mut();
+            if let Some(ref mut win) = w.as_mut() {
+                win.set_option("cursorline", true)?;
+                win.set_option("wrap", false)?;
+            }
+        }
 
         // Set window options for better UX
-        window.set_option("cursorline", true)?;
-        window.set_option("wrap", false)?;
+        let w1 = window.clone();
+        let callback_rc = Rc::new(RefCell::new(Some(callback)));
+        buffer.set_keymap(
+            api::types::Mode::Normal,
+            "<CR>",
+            "",
+            &SetKeymapOpts::builder()
+                .noremap(true)
+                .silent(true)
+                .callback(move |_| {
+                    let _ = api::notify(
+                        "Inside callback",
+                        api::types::LogLevel::Info,
+                        &Default::default(),
+                    );
+                    if let Some(win) = w1.borrow_mut().take() {
+                        let _ = api::notify(
+                            "Inside window IF statement",
+                            api::types::LogLevel::Info,
+                            &Default::default(),
+                        );
+                        let row = win.get_cursor()?.0;
+                        let line = self
+                            .items
+                            .get(row - 1)
+                            .ok_or(Error::Other("No lines found".into()))?;
+                        //let line: nvim_oxi::String = buffer
+                        //    .get_lines(row..row + 1, false)?
+                        //    .next()
+                        //    .ok_or(Error::Other("No lines found".into()))?;
+                        //let trimmed = line.to_string_lossy().trim_end_matches("\n").to_string();
+                        let _ = api::notify(
+                            &format!("line before close: {}", &line),
+                            api::types::LogLevel::Info,
+                            &Default::default(),
+                        );
+                        // Close the current window first to prevent nested window issues
+                        let _ = win.close(false);
+
+                        let _ = api::notify(
+                            &format!("line after close: {}", &line),
+                            api::types::LogLevel::Info,
+                            &Default::default(),
+                        );
+                        if let Some(call) = callback_rc.borrow_mut().take() {
+                            call(Some(line.to_owned()));
+                        }
+
+                        Ok(())
+                    } else {
+                        Err(Error::Other("No window found".into()))
+                    }
+                })
+                .build(),
+        )?;
+
+        let w2 = window.clone();
+        buffer.set_keymap(
+            api::types::Mode::Normal,
+            "<CR>",
+            "",
+            &SetKeymapOpts::builder()
+                .noremap(true)
+                .silent(true)
+                .callback(move |_| {
+                    if let Some(win) = w2.borrow_mut().take() {
+                        win.close(false)
+                    } else {
+                        Err(Error::Other("No window found".into()))
+                    }
+                })
+                .build(),
+        )?;
 
         // Setup keymappings with callback for interaction with the selection window
-        setup_keymappings_with_callback(buffer, self.items.clone(), callback)?;
+        //setup_keymappings_with_callback(buffer, window, callback)?;
 
         Ok(())
     }
-}
-
-/// Sets up key mappings with callback for the selection buffer
-///
-/// # Arguments
-/// * `buffer` - The buffer to set mappings for
-/// * `items` - The list of selectable items
-/// * `callback` - The callback to call with the selection
-///
-/// # Returns
-/// * `Result<()>` - Success or error from Neovim operations
-fn setup_keymappings_with_callback<F>(
-    mut buffer: Buffer,
-    items: Vec<String>,
-    callback: F,
-) -> Result<()>
-where
-    F: FnOnce(Option<String>) + 'static + Send,
-{
-    let callback = Arc::new(Mutex::new(Some(
-        Box::new(callback) as Box<dyn FnOnce(Option<String>) + Send>
-    )));
-
-    // Clone for Enter key
-    let enter_callback = callback.clone();
-    let enter_items = items.clone();
-
-    // Handle Enter key (selection) with callback
-    buffer.set_keymap(
-        api::types::Mode::Normal,
-        "<CR>",
-        "",
-        &SetKeymapOpts::builder()
-            .noremap(true)
-            .silent(true)
-            .callback(move |_| {
-                // Get current line number (1-based in Vim)
-                let win = api::get_current_win();
-                let selected_item = if let Ok((row, _)) = win.get_cursor() {
-                    let idx = row as usize - 1; // Convert to 0-based index
-                    if idx < enter_items.len() {
-                        Some(enter_items[idx].clone())
-                    } else {
-                        None
-                    }
-                } else {
-                    None
-                };
-
-                // Close the current window first to prevent nested window issues
-                api::command("q!").ok();
-
-                // Take the callback out of the Arc<Mutex> to call it
-                let callback_fn = match enter_callback.lock() {
-                    Ok(mut guard) => guard.take(),
-                    Err(poisoned) => {
-                        // Recover from poisoned mutex
-                        api::notify(
-                            "Recovering from poisoned mutex",
-                            LogLevel::Warn,
-                            &Default::default(),
-                        )
-                        .ok();
-                        poisoned.into_inner().take()
-                    }
-                };
-
-                // Schedule the callback to run in the next event loop iteration
-                // This prevents issues with nested callbacks and window management
-                if let Some(cb) = callback_fn {
-                    // Use nvim_oxi::schedule instead of vim.schedule
-                    let selected_clone = selected_item.clone();
-                    nvim_oxi::schedule(move |_| {
-                        let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-                            cb(selected_clone);
-                        }));
-
-                        if let Err(e) = result {
-                            // Convert panic payload to string for error message
-                            let panic_msg = if let Some(s) = e.downcast_ref::<&str>() {
-                                (*s).to_string()
-                            } else if let Some(s) = e.downcast_ref::<String>() {
-                                s.clone()
-                            } else {
-                                "Unknown panic".to_string()
-                            };
-
-                            api::notify(
-                                &format!("Panic in selection callback: {}", panic_msg),
-                                LogLevel::Error,
-                                &Default::default(),
-                            )
-                            .ok();
-                        }
-
-                        Result::Ok(())
-                    })
-                }
-
-                Result::Ok(())
-            })
-            .build(),
-    )?;
-
-    // Handle Escape key with similar panic protection
-    buffer.set_keymap(
-        api::types::Mode::Normal,
-        "<Esc>",
-        ":q<CR>",
-        &SetKeymapOpts::builder().noremap(true).silent(true).build(),
-    )?;
-
-    Ok(())
 }

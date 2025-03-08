@@ -257,6 +257,125 @@ fn update_config(
     Ok(())
 }
 
+/// Shows the current aichat configuration in a floating window
+pub fn show_current_config() -> nvim_oxi::Result<()> {
+    // Get the current configuration
+    let config = match CONFIG.lock() {
+        Ok(guard) => guard,
+        Err(poisoned) => {
+            api::notify(
+                "Recovering from poisoned mutex",
+                LogLevel::Warn,
+                &Default::default(),
+            )?;
+            poisoned.into_inner() // Recover from poisoned state
+        }
+    };
+
+    // Create a buffer for the window
+    let mut buffer = api::create_buf(false, true)?;
+
+    // Prepare the content lines
+    let mut lines = Vec::new();
+    lines.push("Current Aichat Configuration:".to_string());
+    lines.push("".to_string());
+
+    // Add mode configuration
+    if let Some(mode) = config.mode_flag {
+        let mode_str = match mode {
+            Mode::Role => "Role",
+            Mode::Agent => "Agent",
+            Mode::Macro => "Macro",
+        };
+
+        if let Some(arg) = &config.mode_arg {
+            lines.push(format!("Mode: {} - {}", mode_str, arg));
+        } else {
+            lines.push(format!("Mode: {}", mode_str));
+        }
+    } else {
+        lines.push("Mode: Not set".to_string());
+    }
+
+    // Add RAG configuration
+    if let Some(rag) = &config.rag {
+        lines.push(format!("RAG: {}", rag));
+    } else {
+        lines.push("RAG: Not set".to_string());
+    }
+
+    // Add session configuration
+    if let Some(session) = &config.session {
+        lines.push(format!("Session: {}", session));
+    } else {
+        lines.push("Session: Not set".to_string());
+    }
+
+    // Calculate window dimensions
+    let width = 50;
+    let height = lines.len() as u32;
+
+    // Set buffer lines
+    buffer.set_lines(0..0, false, lines)?;
+
+    // Make buffer read-only
+    buffer.set_option("modifiable", false)?;
+    buffer.set_option("buftype", "nofile")?;
+
+    // Get editor dimensions
+    let current_window = api::get_current_win();
+    let width_editor = current_window.get_width()? as u32;
+    let height_editor = current_window.get_height()? as u32;
+
+    // Calculate center position
+    let row = (height_editor - height) / 2;
+    let col = (width_editor - width) / 2;
+
+    // Create window configuration
+    let win_config = api::types::WindowConfig::builder()
+        .relative(api::types::WindowRelativeTo::Editor)
+        .width(width)
+        .height(height)
+        .row(row)
+        .col(col)
+        .style(api::types::WindowStyle::Minimal)
+        .border(api::types::WindowBorder::Rounded)
+        .title(api::types::WindowTitle::SimpleString(
+            "Aichat Configuration".into(),
+        ))
+        .title_pos(api::types::WindowTitlePosition::Center)
+        .build();
+
+    // Open the window
+    let mut window = api::open_win(&buffer, true, &win_config)?;
+
+    // Set window options
+    window.set_option("cursorline", false)?;
+
+    // Add a keymap to close the window with any key
+    buffer.set_keymap(
+        api::types::Mode::Normal,
+        "<Esc>",
+        ":q<CR>",
+        &api::opts::SetKeymapOpts::builder()
+            .noremap(true)
+            .silent(true)
+            .build(),
+    )?;
+
+    buffer.set_keymap(
+        api::types::Mode::Normal,
+        "q",
+        ":q<CR>",
+        &api::opts::SetKeymapOpts::builder()
+            .noremap(true)
+            .silent(true)
+            .build(),
+    )?;
+
+    Ok(())
+}
+
 /// Public API function to show the aichat configuration menu
 pub fn show_aichat_config() -> nvim_oxi::Result<()> {
     show_config_menu()

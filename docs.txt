@@ -436,9 +436,6 @@ pub fn input_mouse(
 ) -> Result<()> {
 
 # nvim_list_bufs
-/// [2]: unloaded/deleted
-
-# nvim_list_bufs
 pub fn list_tabpages() -> impl SuperIterator<TabPage> {
 
 # nvim_list_chans
@@ -446,12 +443,6 @@ pub fn list_chans() -> impl SuperIterator<ChannelInfos> {
 
 # nvim_list_runtime_paths
 pub fn list_runtime_paths() -> Result<impl SuperIterator<PathBuf>> {
-
-# nvim_list_bufs
-/// [2]: unloaded/deleted
-
-# nvim_list_bufs
-pub fn list_tabpages() -> impl SuperIterator<TabPage> {
 
 # nvim_list_uis
 pub fn list_uis() -> impl SuperIterator<UiInfos> {
