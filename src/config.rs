@@ -257,6 +257,21 @@ fn update_config(
     Ok(())
 }
 
+/// Gets the current aichat configuration
+pub fn get_current_config() -> nvim_oxi::Result<AichatConfig> {
+    match CONFIG.lock() {
+        Ok(guard) => Ok(guard.clone()),
+        Err(poisoned) => {
+            api::notify(
+                "Recovering from poisoned mutex",
+                LogLevel::Warn,
+                &Default::default(),
+            )?;
+            Ok(poisoned.into_inner().clone()) // Recover from poisoned state
+        }
+    }
+}
+
 /// Shows the current aichat configuration in a floating window
 pub fn show_current_config() -> nvim_oxi::Result<()> {
     // Get the current configuration
