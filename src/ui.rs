@@ -57,6 +57,32 @@ where
     Ok(())
 }
 
+/// Helper function to set a keymap for insert mode with common options
+///
+/// # Arguments
+/// * `buffer` - Buffer to set the keymap on
+/// * `key` - Key to map
+/// * `callback` - Callback function to execute when the key is pressed
+///
+/// # Returns
+/// * `Result<()>` - Success or error from Neovim operations
+fn set_insert_keymap<F>(buffer: &mut api::Buffer, key: &str, callback: F) -> Result<()>
+where
+    F: FnMut(()) -> std::result::Result<(), nvim_oxi::api::Error> + 'static,
+{
+    buffer.set_keymap(
+        api::types::Mode::Insert,
+        key,
+        "",
+        &SetKeymapOpts::builder()
+            .noremap(true)
+            .silent(true)
+            .callback(callback)
+            .build(),
+    )?;
+    Ok(())
+}
+
 /// UiSelect provides a floating window UI component for selecting from a list of items
 /// This component creates a bordered window with selectable items and keyboard navigation
 pub struct UiSelect {
@@ -182,6 +208,199 @@ impl UiSelect {
         // Set Escape key mapping
         set_normal_keymap(&mut buffer, "<ESC>", move |_| {
             if let Some(win) = w2.borrow_mut().take() {
+                win.close(false)
+            } else {
+                Err(Error::Other("No window found".into()))
+            }
+        })?;
+
+        Ok(())
+    }
+}
+
+/// UiInput provides a floating window UI component for text input
+/// This component creates a bordered window with a prompt and text input field
+pub struct UiInput {
+    prompt: String,
+    default_text: String,
+}
+
+impl UiInput {
+    /// Creates a new UiInput instance with the provided prompt and optional default text
+    ///
+    /// # Arguments
+    /// * `prompt` - The prompt to display before the input field
+    /// * `default_text` - Optional default text to pre-fill in the input field
+    pub fn new(prompt: String, default_text: Option<String>) -> Self {
+        Self {
+            prompt,
+            default_text: default_text.unwrap_or_default(),
+        }
+    }
+
+    /// Creates window configuration for the input UI
+    ///
+    /// # Arguments
+    /// * `title` - The title to display at the top of the input window
+    ///
+    /// # Returns
+    /// * `Result<WindowConfig>` - Window configuration
+    fn create_window_config(&self, title: &str) -> Result<WindowConfig> {
+        // Make width proportional to editor width (60% of editor width)
+        let current_window = api::get_current_win();
+        let width_editor = current_window.get_width()? as u32;
+        let height_editor = current_window.get_height()? as u32;
+
+        // Width is 60% of editor width, with a minimum of 30 and maximum of 80
+        let width = (width_editor as f32 * 0.6).round() as u32;
+        let width = width.max(30).min(80);
+        let height = 1_u32;
+
+        // Calculate center position
+        let row = (height_editor - height - 1) / 2;
+        let col = (width_editor - width) / 2;
+
+        // Create window configuration for the floating window
+        let win_config = WindowConfig::builder()
+            .relative(api::types::WindowRelativeTo::Editor)
+            .width(width)
+            .height(height)
+            .row(row)
+            .col(col)
+            .style(api::types::WindowStyle::Minimal)
+            .border(api::types::WindowBorder::Rounded)
+            .title(api::types::WindowTitle::SimpleString(title.into()))
+            .title_pos(api::types::WindowTitlePosition::Center)
+            .build();
+
+        Ok(win_config)
+    }
+
+    /// Creates and configures a buffer for the input UI
+    ///
+    /// # Returns
+    /// * `Result<api::Buffer>` - Configured buffer
+    fn create_configured_buffer(&self) -> Result<api::Buffer> {
+        // Create a buffer for the window
+        let mut buffer = api::create_buf(false, true)?;
+
+        // Set initial content with prompt and default text
+        let initial_content = format!("{} {}", self.prompt, self.default_text);
+        buffer.set_lines(0..1, false, vec![initial_content])?;
+
+        // Make buffer modifiable
+        buffer.set_option("modifiable", true)?;
+        buffer.set_option("buftype", "nofile")?;
+
+        Ok(buffer)
+    }
+
+    /// Displays the input UI with the given title and calls the provided callback with the input text
+    ///
+    /// # Arguments
+    /// * `title` - The title to display at the top of the input window
+    /// * `callback` - Function to call with the input text (or None if cancelled)
+    ///
+    /// # Returns
+    /// * `Result<()>` - Success or error from Neovim operations
+    pub fn show_with_callback<F>(self, title: &str, callback: F) -> Result<()>
+    where
+        F: FnOnce(String) + 'static + Send,
+    {
+        // Get window configuration
+        let win_config = self.create_window_config(title)?;
+
+        // Create and configure the buffer
+        let mut buffer = self.create_configured_buffer()?;
+
+        // Open and configure the window
+        let window_rc = open_configured_window(&buffer, &win_config)?;
+
+        // Position cursor at the end of the prompt
+        if let Some(mut window) = window_rc.borrow_mut().take() {
+            let prompt_len = self.prompt.len() + 1;
+            window.set_cursor(1, prompt_len)?;
+        }
+
+        // Enter insert mode
+        api::command("startinsert!")?;
+
+        let prompt_len = self.prompt.len() + 1; // +1 for the space
+        let callback_rc = Rc::new(RefCell::new(Some(callback)));
+
+        // Set Enter key mapping for insert mode
+        {
+            let w = window_rc.clone();
+            let callback_clone = callback_rc.clone();
+
+            set_insert_keymap(&mut buffer, "<CR>", move |_| {
+                if let Some(win) = w.borrow_mut().take() {
+                    // Get the current line content
+                    let mut lines = win.get_buf()?.get_lines(0..1, false)?;
+                    let input_line = lines.next().ok_or(Error::Other("No input found".into()))?;
+
+                    // Extract the input text (remove the prompt)
+                    let input_text = if input_line.len() > prompt_len {
+                        input_line.to_string_lossy()[prompt_len..].to_string()
+                    } else {
+                        String::new()
+                    };
+
+                    // Close the window
+                    let _ = win.close(false)?;
+
+                    // Exit insert mode
+                    api::command("stopinsert")?;
+
+                    // Call the callback with the input text
+                    if let Some(call) = callback_clone.borrow_mut().take() {
+                        call(input_text);
+                    };
+                    Ok(())
+                } else {
+                    Err(Error::Other("No window found".into()))
+                }
+            })?;
+        }
+
+        // Set Enter key mapping for normal mode
+        {
+            let w = window_rc.clone();
+
+            set_normal_keymap(&mut buffer, "<CR>", move |_| {
+                if let Some(win) = w.borrow_mut().take() {
+                    // Get the current line content
+                    let mut lines = win.get_buf()?.get_lines(0..1, false)?;
+                    let input_line = lines.next().ok_or(Error::Other("No input found".into()))?;
+
+                    // Extract the input text (remove the prompt)
+                    let input_text = if input_line.len() > prompt_len {
+                        input_line.to_string_lossy()[prompt_len..].to_string()
+                    } else {
+                        String::new()
+                    };
+
+                    // Close the window
+                    let _ = win.close(false)?;
+
+                    // Call the callback with the input text
+                    if let Some(call) = callback_rc.borrow_mut().take() {
+                        call(input_text);
+                    };
+                    Ok(())
+                } else {
+                    Err(Error::Other("No window found".into()))
+                }
+            })?;
+        }
+
+        let w2 = window_rc.clone();
+
+        // Set Escape key mapping
+        set_normal_keymap(&mut buffer, "<ESC>", move |_| {
+            if let Some(win) = w2.borrow_mut().take() {
+                // Exit insert mode
+                api::command("stopinsert")?;
                 win.close(false)
             } else {
                 Err(Error::Other("No window found".into()))
