@@ -131,25 +131,23 @@ pub fn show_config_menu() -> nvim_oxi::Result<()> {
     ];
 
     let ui = crate::ui::UiSelect::new(menu_items);
-    ui.show_with_callback("Aichat Configuration".to_string(), |selection| {
-        if let Some(selection) = selection {
-            match selection.as_str() {
-                "Set Role" => handle_config_selection("roles", Some(Mode::Role)),
-                "Set Agent" => handle_config_selection("agents", Some(Mode::Agent)),
-                "Set Macro" => handle_config_selection("macros", Some(Mode::Macro)),
-                "Set Session" => handle_config_selection("sessions", None),
-                "Set RAG" => handle_config_selection("rags", None),
-                _ => Ok(()),
-            }
-            .unwrap_or_else(|e| {
-                api::notify(
-                    &format!("Error: {}", e),
-                    LogLevel::Error,
-                    &Default::default(),
-                )
-                .ok();
-            });
+    ui.show_with_callback("Aichat Configuration", |selection| {
+        match selection.as_str() {
+            "Set Role" => handle_config_selection("roles", Some(Mode::Role)),
+            "Set Agent" => handle_config_selection("agents", Some(Mode::Agent)),
+            "Set Macro" => handle_config_selection("macros", Some(Mode::Macro)),
+            "Set Session" => handle_config_selection("sessions", None),
+            "Set RAG" => handle_config_selection("rags", None),
+            _ => Ok(()),
         }
+        .unwrap_or_else(|e| {
+            api::notify(
+                &format!("Error: {}", e),
+                LogLevel::Error,
+                &Default::default(),
+            )
+            .ok();
+        });
     })?;
 
     Ok(())
@@ -165,8 +163,9 @@ fn handle_config_selection(option_type: &str, mode: Option<Mode>) -> nvim_oxi::R
             // Clone option_type to own it inside the closure
             let option_type_owned = option_type.to_string();
 
-            ui.show_with_callback(format!("Select {}", option_type), move |selection| {
-                if let Some(selection) = selection {
+            ui.show_with_callback(
+                format!("Select {}", option_type).as_str(),
+                move |selection| {
                     let update_result = if selection == "(unset)" {
                         // Unset the config value
                         update_config(&option_type_owned, None, mode)
@@ -184,8 +183,8 @@ fn handle_config_selection(option_type: &str, mode: Option<Mode>) -> nvim_oxi::R
                         )
                         .ok();
                     }
-                }
-            })?;
+                },
+            )?;
 
             Ok(())
         }

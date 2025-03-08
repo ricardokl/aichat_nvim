@@ -19,18 +19,14 @@ impl UiSelect {
         Self { items }
     }
 
-    /// Displays the selection UI with the given title and calls the provided callback with the selection
+    /// Creates window configuration for the selection UI
     ///
     /// # Arguments
     /// * `title` - The title to display at the top of the selection window
-    /// * `callback` - Function to call with the selected item (or None if cancelled)
     ///
     /// # Returns
-    /// * `Result<()>` - Success or error from Neovim operations
-    pub fn show_with_callback<F>(self, title: String, callback: F) -> Result<()>
-    where
-        F: FnOnce(Option<String>) + 'static + Send,
-    {
+    /// * `Result<(WindowConfig, u32)>` - Window configuration and height
+    fn create_window_config(&self, title: &str) -> Result<(WindowConfig, u32)> {
         // Calculate window dimensions based on content
         let width = self.items.iter().map(|text| text.len()).max().unwrap_or(20) as u32 + 2;
         let height = self.items.len() as u32;
@@ -57,8 +53,23 @@ impl UiSelect {
             .title_pos(api::types::WindowTitlePosition::Center)
             .build();
 
-        // Open the window with our buffer and configuration
-        //let mut window = api::open_win(&buffer, true, &win_config)?;
+        Ok((win_config, height))
+    }
+
+    /// Displays the selection UI with the given title and calls the provided callback with the selection
+    ///
+    /// # Arguments
+    /// * `title` - The title to display at the top of the selection window
+    /// * `callback` - Function to call with the selected item (or None if cancelled)
+    ///
+    /// # Returns
+    /// * `Result<()>` - Success or error from Neovim operations
+    pub fn show_with_callback<F>(self, title: &str, callback: F) -> Result<()>
+    where
+        F: FnOnce(String) + 'static + Send,
+    {
+        // Get window configuration
+        let (win_config, _height) = self.create_window_config(title)?;
 
         // Create a buffer for the window
         let mut buffer = api::create_buf(false, true)?;
@@ -85,7 +96,6 @@ impl UiSelect {
             }
         }
 
-        // Set window options for better UX
         let items = self.items.clone();
         let w1 = window.clone();
         let callback_rc = Rc::new(RefCell::new(Some(callback)));
@@ -104,7 +114,7 @@ impl UiSelect {
                             .ok_or(Error::Other("No lines found".into()))?;
                         let _ = win.close(false)?;
                         if let Some(call) = callback_rc.borrow_mut().take() {
-                            call(Some(line.to_owned()));
+                            call(line.to_owned());
                         };
                         Ok(())
                     } else {
@@ -131,10 +141,6 @@ impl UiSelect {
                 })
                 .build(),
         )?;
-
-        // Setup keymappings with callback for interaction with the selection window
-        //setup_keymappings_with_callback(buffer, window, callback)?;
-
         Ok(())
     }
 }
