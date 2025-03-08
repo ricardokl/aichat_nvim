@@ -86,6 +86,7 @@ impl UiSelect {
         }
 
         // Set window options for better UX
+        let items = self.items.clone();
         let w1 = window.clone();
         let callback_rc = Rc::new(RefCell::new(Some(callback)));
         buffer.set_keymap(
@@ -96,44 +97,15 @@ impl UiSelect {
                 .noremap(true)
                 .silent(true)
                 .callback(move |_| {
-                    let _ = api::notify(
-                        "Inside callback",
-                        api::types::LogLevel::Info,
-                        &Default::default(),
-                    );
                     if let Some(win) = w1.borrow_mut().take() {
-                        let _ = api::notify(
-                            "Inside window IF statement",
-                            api::types::LogLevel::Info,
-                            &Default::default(),
-                        );
                         let row = win.get_cursor()?.0;
-                        let line = self
-                            .items
+                        let line = items
                             .get(row - 1)
                             .ok_or(Error::Other("No lines found".into()))?;
-                        //let line: nvim_oxi::String = buffer
-                        //    .get_lines(row..row + 1, false)?
-                        //    .next()
-                        //    .ok_or(Error::Other("No lines found".into()))?;
-                        //let trimmed = line.to_string_lossy().trim_end_matches("\n").to_string();
-                        let _ = api::notify(
-                            &format!("line before close: {}", &line),
-                            api::types::LogLevel::Info,
-                            &Default::default(),
-                        );
-                        // Close the current window first to prevent nested window issues
-                        let _ = win.close(false);
-
-                        let _ = api::notify(
-                            &format!("line after close: {}", &line),
-                            api::types::LogLevel::Info,
-                            &Default::default(),
-                        );
+                        let _ = win.close(false)?;
                         if let Some(call) = callback_rc.borrow_mut().take() {
                             call(Some(line.to_owned()));
-                        }
-
+                        };
                         Ok(())
                     } else {
                         Err(Error::Other("No window found".into()))
@@ -145,7 +117,7 @@ impl UiSelect {
         let w2 = window.clone();
         buffer.set_keymap(
             api::types::Mode::Normal,
-            "<CR>",
+            "<ESC>",
             "",
             &SetKeymapOpts::builder()
                 .noremap(true)

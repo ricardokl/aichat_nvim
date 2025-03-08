@@ -45,14 +45,14 @@ impl ToObject for AichatConfig {
 }
 
 impl lua::Poppable for AichatConfig {
-    unsafe fn pop(lstate: *mut lua::ffi::lua_State) -> Result<Self, lua::Error> {
+    unsafe fn pop(lstate: *mut lua::ffi::State) -> Result<Self, lua::Error> {
         let obj = Object::pop(lstate)?;
         Self::from_object(obj).map_err(lua::Error::pop_error_from_err::<Self, _>)
     }
 }
 
 impl lua::Pushable for AichatConfig {
-    unsafe fn push(self, lstate: *mut lua::ffi::lua_State) -> Result<std::ffi::c_int, lua::Error> {
+    unsafe fn push(self, lstate: *mut lua::ffi::State) -> Result<std::ffi::c_int, lua::Error> {
         self.to_object()
             .map_err(lua::Error::push_error_from_err::<Self, _>)?
             .push(lstate)
@@ -209,16 +209,16 @@ fn update_config(
     let mut config = match CONFIG.lock() {
         Ok(guard) => guard,
         Err(poisoned) => {
-            api::notify(
-                "Recovering from poisoned mutex",
-                LogLevel::Warn,
-                &Default::default(),
-            )?;
+            //api::notify(
+            //    "Recovering from poisoned mutex",
+            //    LogLevel::Warn,
+            //    &Default::default(),
+            //)?;
             poisoned.into_inner() // Recover from poisoned state
         }
     };
 
-    // Notify the user about the change
+    //Notify the user about the change
     let status = if let Some(val) = &value {
         format!("Set {} to: {}", option_type, val)
     } else {
@@ -251,13 +251,14 @@ fn update_config(
         }
     }
 
-    // Notify the user about the successful update
+    //Notify the user about the successful update
     api::notify(&status, LogLevel::Info, &Default::default())?;
 
     Ok(())
 }
 
 /// Shows the current aichat configuration in a floating window
+#[allow(dead_code)]
 pub fn show_current_config() -> nvim_oxi::Result<()> {
     // Get the current configuration
     let config = match CONFIG.lock() {
