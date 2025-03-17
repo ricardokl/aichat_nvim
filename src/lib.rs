@@ -32,11 +32,8 @@ fn aichat(args: CommandArgs) -> Result<()> {
         code = format!("```{}\n{}```", ft, line.to_string());
     }
 
-    // Create input UI component
-    let input = ui::UiInput::new("❯".into());
-
-    // Show input with callback that concatenates user text with code
-    input.show_with_callback("Aichat Prompt", move |user_text| {
+    // Create input prompt and handle response
+    if let Some(user_text) = ui::show_input_prompt("Aichat Prompt ❯")? {
         let _ = api::notify("Sending to Aichat", LogLevel::Info, &Default::default());
 
         let complete_prompt = format!("{}\n{}", user_text, code);
@@ -50,7 +47,7 @@ fn aichat(args: CommandArgs) -> Result<()> {
                     LogLevel::Error,
                     &Default::default(),
                 );
-                return;
+                return Ok(());
             }
         };
 
@@ -63,7 +60,7 @@ fn aichat(args: CommandArgs) -> Result<()> {
                 let _ = api::notify("Something went wrong", LogLevel::Error, &Default::default());
             }
         }
-    })?;
+    }
 
     Ok(())
 }

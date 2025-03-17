@@ -1,0 +1,2 @@
+cargo check src/ui.rs
+cargo check src/lib.rs
