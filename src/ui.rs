@@ -57,32 +57,6 @@ where
     Ok(())
 }
 
-/// Helper function to set a keymap for insert mode with common options
-///
-/// # Arguments
-/// * `buffer` - Buffer to set the keymap on
-/// * `key` - Key to map
-/// * `callback` - Callback function to execute when the key is pressed
-///
-/// # Returns
-/// * `Result<()>` - Success or error from Neovim operations
-fn set_insert_keymap<F>(buffer: &mut api::Buffer, key: &str, callback: F) -> Result<()>
-where
-    F: FnMut(()) -> std::result::Result<(), nvim_oxi::api::Error> + 'static,
-{
-    buffer.set_keymap(
-        api::types::Mode::Insert,
-        key,
-        "",
-        &SetKeymapOpts::builder()
-            .noremap(true)
-            .silent(true)
-            .callback(callback)
-            .build(),
-    )?;
-    Ok(())
-}
-
 /// UiSelect provides a floating window UI component for selecting from a list of items
 /// This component creates a bordered window with selectable items and keyboard navigation
 pub struct UiSelect {
