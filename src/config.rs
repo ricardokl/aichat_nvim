@@ -5,7 +5,7 @@ use nvim_oxi::serde::Deserializer;
 use nvim_oxi::{api, lua, Error, Object};
 use once_cell::sync::Lazy;
 use serde::{Deserialize, Serialize};
-use std::sync::Mutex;
+use std::sync::RwLock;
 
 #[derive(Serialize, Deserialize)]
 #[serde(default)]
@@ -59,19 +59,16 @@ impl lua::Poppable for AichatConfig {
 }
 
 // Global static to store the config
-static CONFIG: Lazy<Mutex<AichatConfig>> = Lazy::new(|| Mutex::new(AichatConfig::default()));
+static CONFIG: Lazy<RwLock<AichatConfig>> = Lazy::new(|| RwLock::new(AichatConfig::default()));
 
-/// Gets a reference to the global configuration
-///
-/// Returns a guard that will automatically unlock the mutex when dropped
-pub fn get_config() -> std::sync::MutexGuard<'static, AichatConfig> {
-    match CONFIG.lock() {
-        Ok(guard) => guard,
-        Err(poisoned) => {
-            // Recover from poisoned state
-            poisoned.into_inner()
-        }
-    }
+/// Gets a read-only reference to the global configuration
+pub fn get_config() -> std::sync::RwLockReadGuard<'static, AichatConfig> {
+    CONFIG.read().unwrap_or_else(|e| e.into_inner())
+}
+
+/// Gets a mutable reference to the global configuration
+pub fn get_config_mut() -> std::sync::RwLockWriteGuard<'static, AichatConfig> {
+    CONFIG.write().unwrap_or_else(|e| e.into_inner())
 }
 
 /// Fetches available options from the aichat CLI tool
@@ -210,7 +207,7 @@ fn update_config(
     value: Option<String>,
     mode: Option<Mode>,
 ) -> nvim_oxi::Result<()> {
-    let mut config = get_config();
+    let mut config = get_config_mut();
 
     //Notify the user about the change
     let status = if let Some(val) = &value {
