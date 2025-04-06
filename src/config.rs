@@ -10,8 +10,8 @@ use std::sync::RwLock;
 #[derive(Serialize, Deserialize)]
 #[serde(default)]
 pub struct AichatConfig {
-    pub mode_flag: Option<Mode>,
-    pub mode_arg: Option<Box<str>>,
+    pub mode_flag: Mode,
+    pub mode_arg: Box<str>,
     pub rag: Option<Box<str>>,
     pub session: Option<Box<str>>,
 }
@@ -19,8 +19,8 @@ pub struct AichatConfig {
 impl Default for AichatConfig {
     fn default() -> Self {
         Self {
-            mode_flag: Some(Mode::Role),
-            mode_arg: Some(Box::from("1filecoder")),
+            mode_flag: Mode::Role,
+            mode_arg: Box::from("1filecoder"),
             rag: None,
             session: None,
         }
@@ -116,8 +116,10 @@ fn fetch_aichat_options(option_type: &str) -> nvim_oxi::Result<Vec<String>> {
         .filter(|s| !s.is_empty())
         .collect();
 
-    // Add an option to unset this config value
-    options.push("(unset)".into());
+    // Only add unset option for sessions and rags
+    if option_type == "sessions" || option_type == "rags" {
+        options.push("(unset)".into());
+    }
 
     Ok(options)
 }
@@ -219,14 +221,20 @@ fn update_config(
     // Update the configuration based on the option type
     match option_type {
         "roles" | "agents" | "macros" => {
-            if let Some(mode_val) = mode {
-                config.mode_flag = if value.is_some() {
-                    Some(mode_val)
-                } else {
-                    None
-                };
-                config.mode_arg = value.map(|s| s.into_boxed_str());
-            }
+            let mode_val = mode.ok_or_else(|| {
+                let msg = "Mode must be specified for this option type";
+                api::err_writeln(msg);
+                nvim_oxi::Error::Api(api::Error::Other(msg.into()))
+            })?;
+
+            let value_str = value.ok_or_else(|| {
+                let msg = "Mode argument must exist for this option type";
+                api::err_writeln(msg);
+                nvim_oxi::Error::Api(api::Error::Other(msg.into()))
+            })?;
+
+            config.mode_flag = mode_val;
+            config.mode_arg = value_str.into_boxed_str();
         }
         "sessions" => {
             config.session = value.map(|s| s.into_boxed_str());
@@ -262,21 +270,12 @@ pub fn show_current_config() -> nvim_oxi::Result<()> {
     lines.push("".into());
 
     // Add mode configuration
-    if let Some(mode) = config.mode_flag {
-        let mode_str = match mode {
-            Mode::Role => "Role",
-            Mode::Agent => "Agent",
-            Mode::Macro => "Macro",
-        };
-
-        if let Some(arg) = &config.mode_arg {
-            lines.push(format!("Mode: {} - {}", mode_str, arg));
-        } else {
-            lines.push(format!("Mode: {}", mode_str));
-        }
-    } else {
-        lines.push("Mode: Not set".into());
-    }
+    let mode_str = match config.mode_flag {
+        Mode::Role => "Role",
+        Mode::Agent => "Agent",
+        Mode::Macro => "Macro",
+    };
+    lines.push(format!("Mode: {} - {}", mode_str, config.mode_arg));
 
     // Add RAG configuration
     if let Some(rag) = &config.rag {
