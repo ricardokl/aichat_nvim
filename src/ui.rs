@@ -1,12 +1,10 @@
-use nvim_oxi::{
-    api::{
-        self,
-        opts::SetKeymapOpts,
-        types::{Mode::Normal as N, WindowConfig},
-        Error, Window,
-    },
-    Result,
+use nvim_oxi::api::{
+    self,
+    opts::SetKeymapOpts,
+    types::{Mode::Normal as N, WindowConfig},
+    Error, Window,
 };
+use nvim_oxi::Result;
 use std::{cell::RefCell, rc::Rc};
 
 /// Opens and configures a window with the given buffer and configuration

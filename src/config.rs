@@ -1,18 +1,30 @@
 use crate::ui;
 use nvim_oxi::api::types::LogLevel;
-use nvim_oxi::conversion::{Error as ConversionError, FromObject, ToObject};
-use nvim_oxi::serde::{Deserializer, Serializer};
+use nvim_oxi::conversion::{Error as ConversionError, FromObject};
+use nvim_oxi::serde::Deserializer;
 use nvim_oxi::{api, lua, Error, Object};
 use once_cell::sync::Lazy;
 use serde::{Deserialize, Serialize};
 use std::sync::Mutex;
 
 #[derive(Serialize, Deserialize)]
+#[serde(default)]
 pub struct AichatConfig {
     pub mode_flag: Option<Mode>,
     pub mode_arg: Option<Box<str>>,
     pub rag: Option<Box<str>>,
     pub session: Option<Box<str>>,
+}
+
+impl Default for AichatConfig {
+    fn default() -> Self {
+        Self {
+            mode_flag: Some(Mode::Role),
+            mode_arg: Some(Box::from("1filecoder")),
+            rag: None,
+            session: None,
+        }
+    }
 }
 
 impl Clone for AichatConfig {
@@ -39,12 +51,6 @@ impl FromObject for AichatConfig {
     }
 }
 
-impl ToObject for AichatConfig {
-    fn to_object(self) -> Result<Object, ConversionError> {
-        self.serialize(Serializer::new()).map_err(Into::into)
-    }
-}
-
 impl lua::Poppable for AichatConfig {
     unsafe fn pop(lstate: *mut lua::ffi::State) -> Result<Self, lua::Error> {
         let obj = Object::pop(lstate)?;
@@ -52,23 +58,8 @@ impl lua::Poppable for AichatConfig {
     }
 }
 
-impl lua::Pushable for AichatConfig {
-    unsafe fn push(self, lstate: *mut lua::ffi::State) -> Result<std::ffi::c_int, lua::Error> {
-        self.to_object()
-            .map_err(lua::Error::push_error_from_err::<Self, _>)?
-            .push(lstate)
-    }
-}
-
 // Global static to store the config
-static CONFIG: Lazy<Mutex<AichatConfig>> = Lazy::new(|| {
-    Mutex::new(AichatConfig {
-        mode_flag: None,
-        mode_arg: None,
-        rag: None,
-        session: None,
-    })
-});
+static CONFIG: Lazy<Mutex<AichatConfig>> = Lazy::new(|| Mutex::new(AichatConfig::default()));
 
 /// Gets a reference to the global configuration
 ///
