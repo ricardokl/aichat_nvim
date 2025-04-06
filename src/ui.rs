@@ -141,9 +141,10 @@ impl UiSelect {
     ///
     /// # Returns
     /// * `Result<()>` - Success or error from Neovim operations
-    pub fn show_with_callback<F>(self, title: &str, callback: F) -> Result<()>
+    pub fn show_with_callback<F, E>(self, title: &str, callback: F) -> Result<()>
     where
-        F: FnOnce(String) + 'static + Send,
+        F: FnOnce(String) -> std::result::Result<(), E> + 'static + Send,
+        E: Into<nvim_oxi::Error> + 'static,
     {
         // Get window configuration
         let win_config = self.create_window_config(title)?;
@@ -168,7 +169,7 @@ impl UiSelect {
                 let _ = win.close(false)?;
                 if let Some(call) = callback_rc.borrow_mut().take() {
                     call(line.to_owned());
-                };
+                }
                 Ok(())
             } else {
                 Err(Error::Other("No window found".into()))

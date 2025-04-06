@@ -88,7 +88,7 @@ fn fetch_aichat_options(option_type: &str) -> nvim_oxi::Result<Vec<String>> {
         _ => {
             let error_msg = "Invalid option type";
             api::notify(error_msg, LogLevel::Error, &Default::default()).ok();
-            return Err(Error::Api(api::Error::Other(error_msg.into())));
+            return Err(Error::Api(Other(error_msg.into())));
         }
     };
 
@@ -147,17 +147,7 @@ pub fn show_config_menu() -> nvim_oxi::Result<()> {
             "Set RAG" => handle_config_selection("rags", None),
             _ => Ok(()),
         }
-        .unwrap_or_else(|e| {
-            api::notify(
-                &format!("Error: {}", e),
-                LogLevel::Error,
-                &Default::default(),
-            )
-            .ok();
-        });
-    })?;
-
-    Ok(())
+    })
 }
 
 /// Handles the selection of a specific config option type
@@ -173,22 +163,12 @@ fn handle_config_selection(option_type: &str, mode: Option<Mode>) -> nvim_oxi::R
             ui.show_with_callback(
                 format!("Select {}", option_type).as_str(),
                 move |selection| {
-                    let update_result = if selection == "(unset)" {
+                    if selection == "(unset)" {
                         // Unset the config value
                         update_config(&option_type_owned, None, mode)
                     } else {
                         // Set the config value
                         update_config(&option_type_owned, Some(selection), mode)
-                    };
-
-                    // Handle any errors from update_config
-                    if let Err(e) = update_result {
-                        api::notify(
-                            &format!("Failed to update config: {}", e),
-                            LogLevel::Error,
-                            &Default::default(),
-                        )
-                        .ok();
                     }
                 },
             )?;
@@ -244,7 +224,7 @@ fn update_config(
             config.rag = value.map(|s| s.into_boxed_str());
         }
         _ => {
-            return Err(nvim_oxi::Error::Api(api::Error::Other(format!(
+            return Err(Error::Api(Other(format!(
                 "Invalid option type: {}",
                 option_type
             ))));
