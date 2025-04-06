@@ -2,7 +2,10 @@ use crate::ui;
 use nvim_oxi::api::types::LogLevel;
 use nvim_oxi::conversion::{Error as ConversionError, FromObject};
 use nvim_oxi::serde::Deserializer;
-use nvim_oxi::{api, lua, Error, Object};
+use nvim_oxi::{
+    api::{self, Error::Other},
+    lua, Error, Object,
+};
 use once_cell::sync::Lazy;
 use serde::{Deserialize, Serialize};
 use std::sync::RwLock;
@@ -223,14 +226,12 @@ fn update_config(
         "roles" | "agents" | "macros" => {
             let mode_val = mode.ok_or_else(|| {
                 let msg = "Mode must be specified for this option type";
-                api::err_writeln(msg);
-                nvim_oxi::Error::Api(api::Error::Other(msg.into()))
+                Error::Api(Other(msg.into()))
             })?;
 
             let value_str = value.ok_or_else(|| {
                 let msg = "Mode argument must exist for this option type";
-                api::err_writeln(msg);
-                nvim_oxi::Error::Api(api::Error::Other(msg.into()))
+                Error::Api(Other(msg.into()))
             })?;
 
             config.mode_flag = mode_val;
