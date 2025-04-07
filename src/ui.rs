@@ -69,15 +69,24 @@ impl From<Vec<&str>> for UiSelect {
     }
 }
 
+impl From<Vec<String>> for UiSelect {
+    fn from(items: Vec<String>) -> Self {
+        Self {
+            items: items.into_iter().map(String::into_boxed_str).collect(),
+        }
+    }
+}
+
 impl UiSelect {
     /// Creates a new UiSelect instance with the provided items
     ///
     /// # Arguments
-    /// * `items` - Vector of strings to display as selectable options
-    pub fn new(items: Vec<String>) -> Self {
-        Self {
-            items: items.into_iter().map(String::into_boxed_str).collect(),
-        }
+    /// * `items` - Any collection that can be converted into UiSelect
+    pub fn new<T>(items: T) -> Self
+    where
+        T: Into<Self>,
+    {
+        items.into()
     }
 
     /// Creates window configuration for the selection UI
@@ -216,7 +225,11 @@ impl UiSelect {
 ///
 /// # Returns
 /// * `Result<Option<String>>` - User input or None if cancelled
-pub fn show_input_prompt(prompt: &str) -> Result<Option<String>> {
+pub fn show_input_prompt(prompt: &str) -> Result<Option<Box<str>>> {
     let input: String = api::call_function("input", (prompt,))?;
-    Ok(if input.is_empty() { None } else { Some(input) })
+    Ok(if input.is_empty() {
+        None
+    } else {
+        Some(input.into())
+    })
 }
