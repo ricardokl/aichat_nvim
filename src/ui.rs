@@ -2,7 +2,7 @@ use nvim_oxi::api::{
     self,
     opts::SetKeymapOpts,
     types::{Mode::Normal as N, WindowConfig},
-    Error, Window,
+    Window,
 };
 use nvim_oxi::Result;
 use std::{cell::RefCell, rc::Rc};
@@ -40,7 +40,7 @@ fn open_configured_window(
 /// * `Result<()>` - Success or error from Neovim operations
 fn set_normal_keymap<F>(buffer: &mut api::Buffer, key: &str, callback: F) -> Result<()>
 where
-    F: FnMut(()) -> std::result::Result<(), nvim_oxi::api::Error> + 'static,
+    F: FnMut(()) + 'static,
 {
     buffer.set_keymap(
         N,
@@ -141,9 +141,9 @@ impl UiSelect {
     ///
     /// # Returns
     /// * `Result<()>` - Success or error from Neovim operations
-    pub fn show_with_callback<F, E>(self, title: &str, callback: F) -> Result<()>
+    pub fn show_with_callback<F, E>(self, title: &str, mut callback: F) -> Result<()>
     where
-        F: FnOnce(String) -> std::result::Result<(), E> + 'static + Send,
+        F: FnMut(String) -> std::result::Result<(), E> + 'static + Send,
         E: Into<nvim_oxi::Error> + 'static,
     {
         // Get window configuration
@@ -157,22 +157,33 @@ impl UiSelect {
 
         let items = self.items.clone();
         let w1 = window_rc.clone();
-        let callback_rc = Rc::new(RefCell::new(Some(callback)));
 
         // Set Enter key mapping
         set_normal_keymap(&mut buffer, "<CR>", move |_| {
             if let Some(win) = w1.borrow_mut().take() {
-                let row = win.get_cursor()?.0;
-                let line = items
-                    .get(row - 1)
-                    .ok_or(Error::Other("No lines found".into()))?;
-                let _ = win.close(false)?;
-                if let Some(call) = callback_rc.borrow_mut().take() {
-                    call(line.to_owned());
+                match win.get_cursor() {
+                    Ok(cursor) => {
+                        let row = cursor.0;
+                        match items.get(row - 1) {
+                            Some(line) => {
+                                if let Err(e) = win.close(false) {
+                                    api::err_writeln(&format!("Failed to close window: {e}"));
+                                }
+                                if let Err(e) = callback(line.to_owned()) {
+                                    api::err_writeln(&format!("Callback error: {}", e.into()));
+                                }
+                            }
+                            None => {
+                                api::err_writeln("No lines found");
+                            }
+                        }
+                    }
+                    Err(e) => {
+                        api::err_writeln(&format!("Failed to get cursor: {e}"));
+                    }
                 }
-                Ok(())
             } else {
-                Err(Error::Other("No window found".into()))
+                api::err_writeln("No window found");
             }
         })?;
 
@@ -181,9 +192,11 @@ impl UiSelect {
         // Set Escape key mapping
         set_normal_keymap(&mut buffer, "<ESC>", move |_| {
             if let Some(win) = w2.borrow_mut().take() {
-                win.close(false)
+                if let Err(e) = win.close(false) {
+                    api::err_writeln(&format!("Failed to close window: {e}"));
+                }
             } else {
-                Err(Error::Other("No window found".into()))
+                api::err_writeln("No window found");
             }
         })?;
 
