@@ -10,23 +10,11 @@ pub fn run_aichat_command(config: &AichatConfig, input: &str) -> Result<String> 
     let mut cmd = Command::new("aichat");
 
     // Add mode flag and argument if set
-    if let Some(mode_flag) = &config.mode_flag {
-        if let Some(mode_arg) = &config.mode_arg {
-            match mode_flag {
-                Mode::Role => cmd.arg("--role").arg(mode_arg.as_ref()),
-                Mode::Agent => cmd.arg("--agent").arg(mode_arg.as_ref()),
-                Mode::Macro => cmd.arg("--macro").arg(mode_arg.as_ref()),
-            };
-        } else {
-            let msg = "Mode argument is missing";
-            let _ = api::notify(msg, LogLevel::Info, &Default::default());
-            return Err(Error::Api(api::Error::Other(msg.into())));
-        }
-    } else {
-        let msg = "Mode flag is required";
-        let _ = api::notify(msg, LogLevel::Info, &Default::default());
-        return Err(Error::Api(api::Error::Other(msg.into())));
-    }
+    match config.mode_flag {
+        Mode::Role => cmd.arg("--role").arg(config.mode_arg.as_ref()),
+        Mode::Agent => cmd.arg("--agent").arg(config.mode_arg.as_ref()),
+        Mode::Macro => cmd.arg("--macro").arg(config.mode_arg.as_ref()),
+    };
 
     // Add RAG if set
     if let Some(rag) = &config.rag {
