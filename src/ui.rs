@@ -58,13 +58,13 @@ where
 /// UiSelect provides a floating window UI component for selecting from a list of items
 /// This component creates a bordered window with selectable items and keyboard navigation
 pub struct UiSelect {
-    items: Vec<String>,
+    items: Vec<Box<str>>,
 }
 
 impl From<Vec<&str>> for UiSelect {
     fn from(items: Vec<&str>) -> Self {
         Self {
-            items: items.into_iter().map(String::from).collect(),
+            items: items.into_iter().map(Box::from).collect(),
         }
     }
 }
@@ -75,7 +75,9 @@ impl UiSelect {
     /// # Arguments
     /// * `items` - Vector of strings to display as selectable options
     pub fn new(items: Vec<String>) -> Self {
-        Self { items }
+        Self {
+            items: items.into_iter().map(String::into_boxed_str).collect(),
+        }
     }
 
     /// Creates window configuration for the selection UI
@@ -123,8 +125,11 @@ impl UiSelect {
         // Create a buffer for the window
         let mut buffer = api::create_buf(false, true)?;
 
+        // Convert Box<str> to String for the API call
+        let items_strings: Vec<_> = self.items.iter().map(Box::to_string).collect();
+
         // Set buffer lines directly with the items to select from
-        buffer.set_lines(0..1, false, self.items.clone())?;
+        buffer.set_lines(0..1, false, items_strings)?;
 
         // Make buffer read-only to prevent editing the options
         buffer.set_option("modifiable", false)?;
@@ -169,7 +174,7 @@ impl UiSelect {
                                 if let Err(e) = win.close(false) {
                                     api::err_writeln(&format!("Failed to close window: {e}"));
                                 }
-                                if let Err(e) = callback(line.to_owned()) {
+                                if let Err(e) = callback(line.to_string()) {
                                     api::err_writeln(&format!("Callback error: {}", e.into()));
                                 }
                             }
