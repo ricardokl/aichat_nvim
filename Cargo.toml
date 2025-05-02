@@ -7,9 +7,8 @@ edition = "2021"
 crate-type = ["cdylib"]
 
 [dependencies]
-# nvim-oxi = { version = "0.5.1", features = ["__vendored_luajit", "neovim-0-10"] }
-# nvim-oxi = { git = "https://github.com/noib3/nvim-oxi.git", version = "0.5.1", features = ["__vendored_luajit", "neovim-0-10"], branch = "main" }
-nvim-oxi = { path = "/home/ricardo/projects/nvim-oxi/", version = "0.5.1", features = ["__vendored_luajit", "neovim-0-10"] }
+# nvim-oxi = { git = "https://github.com/noib3/nvim-oxi.git", version = "0.5.1", features = ["__vendored_luajit", "neovim-nightly"], branch = "main" }
+nvim-oxi = { path = "/home/ricardo/projects/nvim-oxi/", version = "0.5.1", features = ["__vendored_luajit", "neovim-nightly"] }
 
 once_cell = "1.18.0"
 serde = { version = "1.0.218", features = ["derive"] }

@@ -3,7 +3,11 @@ use nvim_oxi::api::types::LogLevel;
 use nvim_oxi::conversion::{Error as ConversionError, FromObject};
 use nvim_oxi::serde::Deserializer;
 use nvim_oxi::{
-    api::{self, Error::Other},
+    api::{
+        self,
+        opts::{OptionOpts, OptionScope::Local, SetKeymapOpts},
+        Error::Other,
+    },
     lua, Error, Object,
 };
 use once_cell::sync::Lazy;
@@ -23,7 +27,7 @@ impl Default for AichatConfig {
     fn default() -> Self {
         Self {
             mode_flag: Mode::Role,
-            mode_arg: Box::from("1filecoder"),
+            mode_arg: Box::from("sambanova1filecoder"),
             rag: None,
             session: None,
         }
@@ -280,8 +284,9 @@ pub fn show_current_config() -> nvim_oxi::Result<()> {
     buffer.set_lines(0..0, false, lines)?;
 
     // Make buffer read-only
-    buffer.set_option("modifiable", false)?;
-    buffer.set_option("buftype", "nofile")?;
+    let opts = OptionOpts::builder().scope(Local).buffer(&buffer).build();
+    api::set_option_value("modifiable", false, &opts)?;
+    api::set_option_value("buftype", "nofile", &opts)?;
 
     // Get editor dimensions
     let current_window = api::get_current_win();
@@ -308,30 +313,28 @@ pub fn show_current_config() -> nvim_oxi::Result<()> {
         .build();
 
     // Open the window
-    let mut window = api::open_win(&buffer, true, &win_config)?;
+    let window = api::open_win(&buffer, true, &win_config)?;
 
     // Set window options
-    window.set_option("cursorline", false)?;
+    api::set_option_value(
+        "cursorline",
+        false,
+        &OptionOpts::builder().scope(Local).win(&window).build(),
+    )?;
 
     // Add a keymap to close the window with any key
     buffer.set_keymap(
         api::types::Mode::Normal,
         "<Esc>",
         ":q<CR>",
-        &api::opts::SetKeymapOpts::builder()
-            .noremap(true)
-            .silent(true)
-            .build(),
+        &SetKeymapOpts::builder().noremap(true).silent(true).build(),
     )?;
 
     buffer.set_keymap(
         api::types::Mode::Normal,
         "q",
         ":q<CR>",
-        &api::opts::SetKeymapOpts::builder()
-            .noremap(true)
-            .silent(true)
-            .build(),
+        &SetKeymapOpts::builder().noremap(true).silent(true).build(),
     )?;
 
     Ok(())

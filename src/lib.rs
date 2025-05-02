@@ -81,7 +81,12 @@ fn aichat_nvim() -> Result<()> {
     // Create command to set Aichat configuration
     let _ = api::create_user_command(
         "AichatSetConfig",
-        |_| config::show_config_menu(),
+        |_| match config::show_config_menu() {
+            Ok(_) => {}
+            Err(e) => {
+                let _ = api::notify(&format!("{:?}", e), LogLevel::Error, &Default::default());
+            }
+        },
         &CreateCommandOpts::builder()
             .nargs(CommandNArgs::Zero)
             .desc("Set the Config for Aichat")

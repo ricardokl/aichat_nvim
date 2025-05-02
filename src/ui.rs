@@ -1,6 +1,6 @@
 use nvim_oxi::api::{
     self,
-    opts::SetKeymapOpts,
+    opts::{OptionOpts, OptionScope::Local, SetKeymapOpts},
     types::{Mode::Normal as N, WindowConfig},
     Window,
 };
@@ -19,14 +19,15 @@ fn open_configured_window(
     buffer: &api::Buffer,
     win_config: &WindowConfig,
 ) -> Result<Rc<RefCell<Option<Window>>>> {
-    let mut window = api::open_win(buffer, true, win_config)?;
+    let window = api::open_win(buffer, true, win_config)?;
 
     // Configure window options
-    window.set_option("cursorline", true)?;
-    window.set_option("wrap", false)?;
+    let opts = OptionOpts::builder().scope(Local).win(&window).build();
+    api::set_option_value("cursorline", true, &opts)?;
+    api::set_option_value("wrap", false, &opts)?;
 
     // Wrap window in Rc<RefCell<Option<Window>>> for the callbacks
-    Ok(Rc::new(RefCell::new(Some(window))))
+    Ok(RefCell::new(Some(window)).into())
 }
 
 /// Helper function to set a keymap with common options
@@ -141,8 +142,9 @@ impl UiSelect {
         buffer.set_lines(0..1, false, items_strings)?;
 
         // Make buffer read-only to prevent editing the options
-        buffer.set_option("modifiable", false)?;
-        buffer.set_option("buftype", "nofile")?;
+        let opts = OptionOpts::builder().scope(Local).buffer(&buffer).build();
+        api::set_option_value("modifiable", false, &opts)?;
+        api::set_option_value("buftype", "nofile", &opts)?;
 
         Ok(buffer)
     }
@@ -161,10 +163,22 @@ impl UiSelect {
         E: Into<nvim_oxi::Error> + 'static,
     {
         // Get window configuration
-        let win_config = self.create_window_config(title)?;
+        let win_config = match self.create_window_config(title) {
+            Ok(config) => config,
+            Err(e) => {
+                api::err_writeln(&format!("Failed to create window config: {e}"));
+                return Err(e);
+            }
+        };
 
         // Create and configure the buffer
-        let mut buffer = self.create_configured_buffer()?;
+        let mut buffer = match self.create_configured_buffer() {
+            Ok(buffer) => buffer,
+            Err(e) => {
+                api::err_writeln(&format!("Failed to create buffer: {e}"));
+                return Err(e);
+            }
+        };
 
         // Open and configure the window, already wrapped in Rc<RefCell<Option<Window>>>
         let window_rc = open_configured_window(&buffer, &win_config)?;
