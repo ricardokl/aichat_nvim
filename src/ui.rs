@@ -22,15 +22,34 @@ pub fn show_input_prompt(prompt: &str) -> Result<Option<Box<str>>> {
 }
 
 /// Options for vim.ui.select() wrapper
+#[derive(Debug, Clone)]
 pub struct SelectOpts {
     pub prompt: Option<String>,
     pub kind: Option<String>,
 }
 
+impl SelectOpts {
+    /// Create new SelectOpts with a prompt
+    pub fn with_prompt(prompt: impl Into<String>) -> Self {
+        Self {
+            prompt: Some(prompt.into()),
+            kind: None,
+        }
+    }
+
+    /// Create new SelectOpts with both prompt and kind
+    pub fn new(prompt: impl Into<String>, kind: Option<impl Into<String>>) -> Self {
+        Self {
+            prompt: Some(prompt.into()),
+            kind: kind.map(|k| k.into()),
+        }
+    }
+}
+
 impl Default for SelectOpts {
     fn default() -> Self {
         Self {
-            prompt: Some("Select one of:".to_string()),
+            prompt: Some("Select one of:".into()),
             kind: None,
         }
     }
@@ -42,14 +61,37 @@ impl Default for SelectOpts {
 /// UI configuration (telescope, fzf, etc.) rather than using our custom floating window.
 ///
 /// # Arguments
-/// * `items` - Vector of items to select from
+/// * `items` - Vector of items to select from (accepts both String and &str)
 /// * `opts` - Optional configuration (prompt, kind)
 /// * `callback` - Function to call with the selected item and its 1-based index
 ///
 /// # Returns
 /// * `Result<()>` - Success or error from Neovim operations
-pub fn vim_ui_select<F>(items: Vec<String>, opts: Option<SelectOpts>, callback: F) -> Result<()>
+///
+/// # Examples
+/// ```rust
+/// // Using &str (no .to_string() needed!)
+/// let items = vec!["Option 1", "Option 2", "Option 3"];
+/// let opts = SelectOpts::with_prompt("Choose an option");
+/// vim_ui_select(items, Some(opts), |selection, _index| {
+///     // Handle selection
+/// })?;
+///
+/// // Using String (still works)
+/// let items = vec!["Option 1".to_string(), "Option 2".to_string()];
+/// vim_ui_select(items, None, |selection, _index| {
+///     // Handle selection
+/// })?;
+///
+/// // Using slice with convenience function
+/// let items = ["A", "B", "C"];
+/// vim_ui_select_slice(&items, None, |selection, _index| {
+///     // Handle selection
+/// })?;
+/// ```
+pub fn vim_ui_select<T, F>(items: Vec<T>, opts: Option<SelectOpts>, callback: F) -> Result<()>
 where
+    T: AsRef<str> + Clone + Send + 'static,
     F: Fn(Option<String>, Option<usize>) + 'static + Send,
 {
     if items.is_empty() {
@@ -62,7 +104,7 @@ where
     // Convert items to Lua array - need to build it manually
     let mut items_array = Array::new();
     for item in items.iter() {
-        items_array.push(Object::from(item.clone()));
+        items_array.push(Object::from(item.as_ref()));
     }
 
     // Create options dictionary
@@ -119,4 +161,21 @@ where
     )?;
 
     Ok(())
+}
+
+/// Convenience function for vim_ui_select that accepts a slice of string-like items
+///
+/// # Arguments
+/// * `items` - Slice of items to select from (accepts both &[String] and &[&str])
+/// * `opts` - Optional configuration (prompt, kind)
+/// * `callback` - Function to call with the selected item and its 1-based index
+///
+/// # Returns
+/// * `Result<()>` - Success or error from Neovim operations
+pub fn vim_ui_select_slice<T, F>(items: &[T], opts: Option<SelectOpts>, callback: F) -> Result<()>
+where
+    T: AsRef<str> + Clone + Send + 'static,
+    F: Fn(Option<String>, Option<usize>) + 'static + Send,
+{
+    vim_ui_select(items.to_vec(), opts, callback)
 }
