@@ -1,14 +1,13 @@
+use crate::error::{AichatError, Result};
 use crate::ui;
-use nvim_oxi::api::types::LogLevel;
 use nvim_oxi::conversion::{Error as ConversionError, FromObject};
 use nvim_oxi::serde::Deserializer;
 use nvim_oxi::{
     api::{
         self,
         opts::{OptionOpts, OptionScope::Local, SetKeymapOpts},
-        Error::Other,
     },
-    lua, Error, Object,
+    lua, Object,
 };
 use once_cell::sync::Lazy;
 use serde::{Deserialize, Serialize};
@@ -53,13 +52,13 @@ pub enum Mode {
 }
 
 impl FromObject for AichatConfig {
-    fn from_object(obj: Object) -> Result<Self, ConversionError> {
+    fn from_object(obj: Object) -> std::result::Result<Self, ConversionError> {
         Self::deserialize(Deserializer::new(obj)).map_err(Into::into)
     }
 }
 
 impl lua::Poppable for AichatConfig {
-    unsafe fn pop(lstate: *mut lua::ffi::State) -> Result<Self, lua::Error> {
+    unsafe fn pop(lstate: *mut lua::ffi::State) -> std::result::Result<Self, lua::Error> {
         let obj = Object::pop(lstate)?;
         Self::from_object(obj).map_err(lua::Error::pop_error_from_err::<Self, _>)
     }
@@ -79,7 +78,7 @@ pub fn get_config_mut() -> std::sync::RwLockWriteGuard<'static, AichatConfig> {
 }
 
 /// Fetches available options from the aichat CLI tool
-fn fetch_aichat_options(option_type: &str) -> nvim_oxi::Result<Vec<String>> {
+fn fetch_aichat_options(option_type: &str) -> Result<Vec<String>> {
     use std::process::Command;
 
     // Map option type to the appropriate CLI flag
@@ -90,29 +89,15 @@ fn fetch_aichat_options(option_type: &str) -> nvim_oxi::Result<Vec<String>> {
         "sessions" => "--list-sessions",
         "rags" => "--list-rags",
         _ => {
-            let error_msg = "Invalid option type";
-            api::notify(error_msg, LogLevel::Error, &Default::default()).ok();
-            return Err(Error::Api(Other(error_msg.into())));
+            return Err(AichatError::invalid_option_type(option_type));
         }
     };
 
     // Execute the aichat command with the appropriate flag
-    let output = match Command::new("aichat").arg(flag).output() {
-        Ok(output) => output,
-        Err(e) => {
-            let error_msg = format!("Failed to execute aichat: {}", e);
-            api::notify(&error_msg, LogLevel::Error, &Default::default()).ok();
-            return Err(Error::Api(api::Error::Other(error_msg.into())));
-        }
-    };
+    let output = Command::new("aichat").arg(flag).output()?;
 
     if !output.status.success() {
-        let error_msg = format!(
-            "aichat command failed: {}",
-            String::from_utf8_lossy(&output.stderr)
-        );
-        api::notify(&error_msg, LogLevel::Error, &Default::default()).ok();
-        return Err(Error::Api(api::Error::Other(error_msg.into())));
+        return Err(AichatError::command_failed(output.status, output.stderr));
     }
 
     // Parse the output into lines
@@ -134,68 +119,73 @@ fn fetch_aichat_options(option_type: &str) -> nvim_oxi::Result<Vec<String>> {
 /// Shows the main configuration menu for aichat
 pub fn show_config_menu() -> nvim_oxi::Result<()> {
     let menu_items = vec![
-        "Set Role",
-        "Set Agent",
-        "Set Macro",
-        "Set Session",
-        "Set RAG",
+        "Set Role".to_string(),
+        "Set Agent".to_string(),
+        "Set Macro".to_string(),
+        "Set Session".to_string(),
+        "Set RAG".to_string(),
     ];
 
-    let ui: ui::UiSelect = menu_items.into();
-    ui.show_with_callback("Aichat Configuration", |selection| {
-        match selection.as_str() {
-            "Set Role" => handle_config_selection("roles", Some(Mode::Role)),
-            "Set Agent" => handle_config_selection("agents", Some(Mode::Agent)),
-            "Set Macro" => handle_config_selection("macros", Some(Mode::Macro)),
-            "Set Session" => handle_config_selection("sessions", None),
-            "Set RAG" => handle_config_selection("rags", None),
-            _ => Ok(()),
+    let opts = ui::SelectOpts {
+        prompt: Some("Aichat Configuration".to_string()),
+        kind: None,
+    };
+
+    ui::vim_ui_select(menu_items, Some(opts), |selection, _index| {
+        if let Some(selection) = selection {
+            let result = match selection.as_str() {
+                "Set Role" => handle_config_selection("roles", Some(Mode::Role)),
+                "Set Agent" => handle_config_selection("agents", Some(Mode::Agent)),
+                "Set Macro" => handle_config_selection("macros", Some(Mode::Macro)),
+                "Set Session" => handle_config_selection("sessions", None),
+                "Set RAG" => handle_config_selection("rags", None),
+                _ => Ok(()),
+            };
+
+            if let Err(e) = result {
+                crate::error::notify_error(&e);
+            }
         }
     })
 }
 
 /// Handles the selection of a specific config option type
-fn handle_config_selection(option_type: &str, mode: Option<Mode>) -> nvim_oxi::Result<()> {
+fn handle_config_selection(option_type: &str, mode: Option<Mode>) -> Result<()> {
     // Fetch options from aichat CLI
     match fetch_aichat_options(option_type) {
         Ok(options) => {
-            let ui = crate::ui::UiSelect::new(options);
-
             // Clone option_type to own it inside the closure
             let option_type_owned: String = option_type.into();
 
-            ui.show_with_callback(
-                format!("Select {}", option_type).as_str(),
-                move |selection| {
-                    if selection == "(unset)" {
+            let opts = ui::SelectOpts {
+                prompt: Some(format!("Select {}", option_type)),
+                kind: None,
+            };
+
+            ui::vim_ui_select(options, Some(opts), move |selection, _index| {
+                if let Some(selection) = selection {
+                    let result = if selection == "(unset)" {
                         // Unset the config value
                         update_config(&option_type_owned, None, mode)
                     } else {
                         // Set the config value
                         update_config(&option_type_owned, Some(selection), mode)
+                    };
+
+                    if let Err(e) = result {
+                        crate::error::notify_error(&e);
                     }
-                },
-            )?;
+                }
+            })?;
 
             Ok(())
         }
-        Err(e) => {
-            api::notify(
-                &format!("Failed to fetch {} options: {}", option_type, e),
-                LogLevel::Error,
-                &Default::default(),
-            )?;
-            Err(e)
-        }
+        Err(e) => Err(e),
     }
 }
 
 /// Updates the AichatConfig with the selected value
-fn update_config(
-    option_type: &str,
-    value: Option<String>,
-    mode: Option<Mode>,
-) -> nvim_oxi::Result<()> {
+fn update_config(option_type: &str, value: Option<String>, mode: Option<Mode>) -> Result<()> {
     let mut config = get_config_mut();
 
     //Notify the user about the change
@@ -209,13 +199,11 @@ fn update_config(
     match option_type {
         "roles" | "agents" | "macros" => {
             let mode_val = mode.ok_or_else(|| {
-                let msg = "Mode must be specified for this option type";
-                Error::Api(Other(msg.into()))
+                AichatError::missing_value("Mode must be specified for this option type")
             })?;
 
             let value_str = value.ok_or_else(|| {
-                let msg = "Mode argument must exist for this option type";
-                Error::Api(Other(msg.into()))
+                AichatError::missing_value("Mode argument must exist for this option type")
             })?;
 
             config.mode_flag = mode_val;
@@ -228,15 +216,12 @@ fn update_config(
             config.rag = value.map(|s| s.into_boxed_str());
         }
         _ => {
-            return Err(Error::Api(Other(format!(
-                "Invalid option type: {}",
-                option_type
-            ))));
+            return Err(AichatError::invalid_option_type(option_type));
         }
     }
 
     //Notify the user about the successful update
-    api::notify(&status, LogLevel::Info, &Default::default())?;
+    crate::utils::info(&status);
 
     Ok(())
 }

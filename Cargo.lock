@@ -9,6 +9,7 @@ dependencies = [
  "nvim-oxi",
  "once_cell",
  "serde",
+ "thiserror",
 ]
 
 [[package]]

@@ -2,14 +2,16 @@ use nvim_oxi::{
     api::{
         self,
         opts::CreateCommandOpts,
-        types::{CommandArgs, CommandNArgs, LogLevel},
+        types::{CommandArgs, CommandNArgs},
     },
     string, Result,
 };
 
 mod config;
+mod error;
 mod job_runner;
 mod ui;
+mod utils;
 
 fn aichat(args: CommandArgs) -> Result<()> {
     let line1 = args.line1;
@@ -33,20 +35,14 @@ fn aichat(args: CommandArgs) -> Result<()> {
     }
 
     // Create input prompt and handle response
-    if let Some(user_text) = ui::show_input_prompt("Aichat Prompt ❯")? {
-        let _ = api::notify("Sending to Aichat", LogLevel::Info, &Default::default());
+    if let Some(user_text) = ui::show_input_prompt("Aichat Prompt >")? {
+        utils::info("Sending to Aichat");
 
         let complete_prompt = format!("{}\n{}", user_text, code);
-        let output = job_runner::run_aichat_command(&config::get_config(), &complete_prompt);
-
-        let result = match output {
+        let result = match job_runner::run_aichat_command(&config::get_config(), &complete_prompt) {
             Ok(result) => result,
             Err(err) => {
-                let _ = api::notify(
-                    &format!("Error running Aichat command: {}", err),
-                    LogLevel::Error,
-                    &Default::default(),
-                );
+                error::notify_error(&err);
                 return Ok(());
             }
         };
@@ -54,10 +50,10 @@ fn aichat(args: CommandArgs) -> Result<()> {
         let lines = result.split_terminator("\n");
         match buffer.set_lines(line1 - 1..line2, true, lines) {
             Ok(_) => {
-                let _ = api::notify("Success", LogLevel::Info, &Default::default());
+                utils::info("Success");
             }
             Err(_) => {
-                let _ = api::notify("Something went wrong", LogLevel::Error, &Default::default());
+                utils::error("Something went wrong");
             }
         }
     }
@@ -81,12 +77,7 @@ fn aichat_nvim() -> Result<()> {
     // Create command to set Aichat configuration
     let _ = api::create_user_command(
         "AichatSetConfig",
-        |_| match config::show_config_menu() {
-            Ok(_) => {}
-            Err(e) => {
-                let _ = api::notify(&format!("{:?}", e), LogLevel::Error, &Default::default());
-            }
-        },
+        |_| config::show_config_menu(),
         &CreateCommandOpts::builder()
             .nargs(CommandNArgs::Zero)
             .desc("Set the Config for Aichat")
