@@ -14,8 +14,8 @@ pub enum AichatError {
     ProcessExecution(#[from] std::io::Error),
 
     /// Command execution failed with non-zero exit status
-    #[error("Aichat command failed with exit status: {status}. stderr: {stderr}")]
-    CommandFailed { status: ExitStatus, stderr: String },
+    #[error("Aichat command failed with exit status: {status}. stderr: {stderr}. stdout: {stdout}")]
+    CommandFailed { status: ExitStatus, stderr: String, stdout: String },
 
     /// Configuration related errors
     #[error("Configuration error: {0}")]
@@ -72,11 +72,13 @@ impl AichatError {
     }
 
     /// Creates a command failed error from process output
-    pub fn command_failed(status: ExitStatus, stderr: Vec<u8>) -> Self {
+    pub fn command_failed(status: ExitStatus, stderr: Vec<u8>, stdout: Vec<u8>) -> Self {
         let stderr_str = String::from_utf8_lossy(&stderr).to_string();
+        let stdout_str = String::from_utf8_lossy(&stdout).to_string();
         Self::CommandFailed {
             status,
             stderr: stderr_str,
+            stdout: stdout_str,
         }
     }
 

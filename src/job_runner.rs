@@ -42,7 +42,7 @@ pub fn run_aichat_command(config: &AichatConfig, input: &str) -> Result<String> 
 
     // Check if the command was successful
     if !output.status.success() {
-        return Err(AichatError::command_failed(output.status, output.stderr));
+        return Err(AichatError::command_failed(output.status, output.stderr, output.stdout));
     }
 
     // Get the output

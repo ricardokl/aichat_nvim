@@ -22,17 +22,21 @@ fn aichat(args: CommandArgs) -> Result<()> {
         .extension()
         .map(|x| x.to_string_lossy().to_string())
         .unwrap_or("".into());
-    let line_result: Result<nvim_oxi::String> = buffer
-        .get_lines(line1 - 1..line2, true)?
-        .reduce(|acc: nvim_oxi::String, e: nvim_oxi::String| string!("{}\n{}", acc, e))
-        .ok_or(api::Error::Other("No lines found".into()).into());
-    let line = line_result?;
-    let code: String;
-    if line.is_empty() {
-        code = String::new();
+    let lines: Vec<nvim_oxi::String> = buffer.get_lines(line1 - 1..line2, true)?;
+    let line = if lines.is_empty() {
+        string!("")
     } else {
-        code = format!("```{}\n{}```", ft, line.to_string());
-    }
+        lines
+            .into_iter()
+            .reduce(|acc, e| string!("{}\n{}", acc, e))
+            .ok_or(api::Error::Other("No lines found".into()))?
+    };
+    let code = if line.is_empty() {
+        String::new()
+    } else {
+        format!("```{}
+{}```", ft, line.to_string())
+    };
 
     // Create input prompt and handle response
     if let Some(user_text) = ui::show_input_prompt("Aichat Prompt >")? {
@@ -43,19 +47,13 @@ fn aichat(args: CommandArgs) -> Result<()> {
             Ok(result) => result,
             Err(err) => {
                 error::notify_error(&err);
-                return Ok(());
+                return Err(err.into());
             }
         };
 
         let lines = result.split_terminator("\n");
-        match buffer.set_lines(line1 - 1..line2, true, lines) {
-            Ok(_) => {
-                utils::info("Success");
-            }
-            Err(_) => {
-                utils::error("Something went wrong");
-            }
-        }
+        buffer.set_lines(line1 - 1..line2, true, lines)?;
+        utils::info("Success");
     }
 
     Ok(())

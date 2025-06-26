@@ -97,7 +97,7 @@ fn fetch_aichat_options(option_type: &str) -> Result<Vec<String>> {
     let output = Command::new("aichat").arg(flag).output()?;
 
     if !output.status.success() {
-        return Err(AichatError::command_failed(output.status, output.stderr));
+        return Err(AichatError::command_failed(output.status, output.stderr, output.stdout));
     }
 
     // Parse the output into lines
