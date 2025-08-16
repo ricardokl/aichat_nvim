@@ -7,7 +7,7 @@ use thiserror::Error;
 pub enum AichatError {
     /// Neovim API related errors
     #[error("Neovim API error: {0}")]
-    NvimApi(#[from] NvimOxiError),
+    NvimApi(#[from] api::Error),
 
     /// Process execution errors
     #[error("Failed to execute aichat command: {0}")]
@@ -48,6 +48,12 @@ pub enum AichatError {
     /// Generic application error
     #[error("Application error: {0}")]
     Application(String),
+}
+
+impl From<NvimOxiError> for AichatError {
+    fn from(err: NvimOxiError) -> Self {
+        Self::Application(err.to_string())
+    }
 }
 
 impl AichatError {
@@ -95,33 +101,27 @@ pub type Result<T> = std::result::Result<T, AichatError>;
 impl From<AichatError> for NvimOxiError {
     fn from(err: AichatError) -> Self {
         match err {
-            AichatError::NvimApi(nvim_err) => nvim_err,
+            AichatError::NvimApi(api_err) => NvimOxiError::Api(api_err),
             other => NvimOxiError::Api(api::Error::Other(other.to_string().into())),
         }
     }
 }
 
-/// Utility function to notify user about errors
-/// This should be called at the boundary where errors are finally handled
-pub fn notify_error(err: &AichatError) {
-    let _ = crate::utils::error(&err.to_string());
+/// Utility function to convert Result<T, AichatError> to nvim_oxi::Result<T>
+/// and notify the user about the error
+pub fn handle_error<T, E: Into<AichatError>>(result: std::result::Result<T, E>) -> nvim_oxi::Result<T> {
+    match result {
+        Ok(value) => Ok(value),
+        Err(err) => {
+            let aichat_error: AichatError = err.into();
+            crate::utils::error(&aichat_error.to_string());
+            Err(aichat_error.into())
+        }
+    }
 }
 
-// /// Utility function to convert Result<T, AichatError> to nvim_oxi::Result<T>
-// /// and notify the user about the error
-// pub fn handle_error<T>(result: Result<T>) -> nvim_oxi::Result<T> {
-//     match result {
-//         Ok(value) => Ok(value),
-//         Err(err) => {
-//             notify_error(&err);
-//             Err(err.into())
-//         }
-//     }
-// }
-
-// /// Utility function to convert Result<T, AichatError> to nvim_oxi::Result<()>
-// /// This is useful for functions that don't need to return a value but need to handle errors
-// pub fn handle_error_unit(result: Result<()>) -> nvim_oxi::Result<()> {
-//     handle_error(result)
-// }
-
+/// Utility function to convert Result<T, AichatError> to nvim_oxi::Result<()>
+/// This is useful for functions that don't need to return a value but need to handle errors
+pub fn handle_error_unit<E: Into<AichatError>>(result: std::result::Result<(), E>) -> nvim_oxi::Result<()> {
+    handle_error(result)
+}
