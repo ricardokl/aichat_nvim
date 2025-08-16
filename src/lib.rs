@@ -13,7 +13,7 @@ mod job_runner;
 mod ui;
 mod utils;
 
-fn aichat(args: CommandArgs) -> Result<()> {
+fn aichat(args: CommandArgs) -> error::Result<()> {
     let line1 = args.line1;
     let line2 = args.line2;
     let mut buffer = api::get_current_buf();
@@ -22,14 +22,14 @@ fn aichat(args: CommandArgs) -> Result<()> {
         .extension()
         .map(|x| x.to_string_lossy().to_string())
         .unwrap_or("".into());
-    let lines: Vec<nvim_oxi::String> = buffer.get_lines(line1 - 1..line2, true)?;
+    let lines: Vec<nvim_oxi::String> = buffer.get_lines(line1 - 1..line2, true)?.collect();
     let line = if lines.is_empty() {
         string!("")
     } else {
         lines
             .into_iter()
             .reduce(|acc, e| string!("{}\n{}", acc, e))
-            .ok_or(api::Error::Other("No lines found".into()))?
+            .ok_or(error::AichatError::NoLines)?
     };
     let code = if line.is_empty() {
         String::new()
@@ -38,18 +38,12 @@ fn aichat(args: CommandArgs) -> Result<()> {
 {}```", ft, line.to_string())
     };
 
-    // Create input prompt and handle response
     if let Some(user_text) = ui::show_input_prompt("Aichat Prompt >")? {
         utils::info("Sending to Aichat");
 
         let complete_prompt = format!("{}\n{}", user_text, code);
-        let result = match job_runner::run_aichat_command(&config::get_config(), &complete_prompt) {
-            Ok(result) => result,
-            Err(err) => {
-                error::notify_error(&err);
-                return Err(err.into());
-            }
-        };
+        let result =
+            job_runner::run_aichat_command(&config::get_config(), &complete_prompt)?;
 
         let lines = result.split_terminator("\n");
         buffer.set_lines(line1 - 1..line2, true, lines)?;
@@ -62,9 +56,10 @@ fn aichat(args: CommandArgs) -> Result<()> {
 #[nvim_oxi::plugin]
 fn aichat_nvim() -> Result<()> {
     // Create command to run Aichat with the selected text
+    let aichat_cmd = |args| error::handle_error_unit(aichat(args));
     let _ = api::create_user_command(
         "Aichat",
-        aichat,
+        aichat_cmd,
         &CreateCommandOpts::builder()
             .range(api::types::CommandRange::WholeFile)
             .nargs(CommandNArgs::Zero)
@@ -73,9 +68,10 @@ fn aichat_nvim() -> Result<()> {
     )?;
 
     // Create command to set Aichat configuration
+    let set_config_cmd = |_| error::handle_error_unit(config::show_config_menu());
     let _ = api::create_user_command(
         "AichatSetConfig",
-        |_| config::show_config_menu(),
+        set_config_cmd,
         &CreateCommandOpts::builder()
             .nargs(CommandNArgs::Zero)
             .desc("Set the Config for Aichat")
@@ -83,9 +79,10 @@ fn aichat_nvim() -> Result<()> {
     )?;
 
     // Create command to display current Aichat configuration
+    let show_config_cmd = |_| error::handle_error_unit(config::show_current_config());
     let _ = api::create_user_command(
         "AichatShowConfig",
-        |_| config::show_current_config(),
+        show_config_cmd,
         &CreateCommandOpts::builder()
             .nargs(CommandNArgs::Zero)
             .desc("Show the Config for Aichat")

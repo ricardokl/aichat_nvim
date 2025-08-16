@@ -1,4 +1,4 @@
-use nvim_oxi::api::{self, types::LogLevel};
+use nvim_oxi::print;
 
 /// Utility functions for common Neovim operations
 
@@ -7,7 +7,7 @@ use nvim_oxi::api::{self, types::LogLevel};
 /// # Arguments
 /// * `msg` - The message to display
 pub fn info(msg: &str) {
-    let _ = api::notify(msg, LogLevel::Info, &Default::default());
+    print!("[INFO] {}", msg);
 }
 
 /// Shows an error notification to the user
@@ -15,7 +15,7 @@ pub fn info(msg: &str) {
 /// # Arguments
 /// * `msg` - The error message to display
 pub fn error(msg: &str) {
-    let _ = api::notify(msg, LogLevel::Error, &Default::default());
+    print!("[ERROR] {}", msg);
 }
 
 /// Shows a warning notification to the user
@@ -24,7 +24,7 @@ pub fn error(msg: &str) {
 /// * `msg` - The warning message to display
 #[allow(dead_code)]
 pub fn warn(msg: &str) {
-    let _ = api::notify(msg, LogLevel::Warn, &Default::default());
+    print!("[WARN] {}", msg);
 }
 
 /// Shows a debug notification to the user
@@ -33,7 +33,7 @@ pub fn warn(msg: &str) {
 /// * `msg` - The debug message to display
 #[allow(dead_code)]
 pub fn debug(msg: &str) {
-    let _ = api::notify(msg, LogLevel::Debug, &Default::default());
+    print!("[DEBUG] {}", msg);
 }
 
 /// Shows a trace notification to the user
@@ -42,6 +42,5 @@ pub fn debug(msg: &str) {
 /// * `msg` - The trace message to display
 #[allow(dead_code)]
 pub fn trace(msg: &str) {
-    let _ = api::notify(msg, LogLevel::Trace, &Default::default());
+    print!("[TRACE] {}", msg);
 }
-

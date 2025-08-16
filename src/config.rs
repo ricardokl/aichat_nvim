@@ -6,6 +6,7 @@ use nvim_oxi::{
     api::{
         self,
         opts::{OptionOpts, OptionScope::Local, SetKeymapOpts},
+        Buffer, Window,
     },
     lua, Object,
 };
@@ -117,7 +118,7 @@ fn fetch_aichat_options(option_type: &str) -> Result<Vec<String>> {
 }
 
 /// Shows the main configuration menu for aichat
-pub fn show_config_menu() -> nvim_oxi::Result<()> {
+pub fn show_config_menu() -> Result<()> {
     let menu_items = vec![
         "Set Role".to_string(),
         "Set Agent".to_string(),
@@ -143,45 +144,43 @@ pub fn show_config_menu() -> nvim_oxi::Result<()> {
             };
 
             if let Err(e) = result {
-                crate::error::notify_error(&e);
+                crate::utils::error(&e.to_string());
             }
         }
-    })
+    })?;
+    Ok(())
 }
 
 /// Handles the selection of a specific config option type
 fn handle_config_selection(option_type: &str, mode: Option<Mode>) -> Result<()> {
     // Fetch options from aichat CLI
-    match fetch_aichat_options(option_type) {
-        Ok(options) => {
-            // Clone option_type to own it inside the closure
-            let option_type_owned: String = option_type.into();
+    let options = fetch_aichat_options(option_type)?;
 
-            let opts = ui::SelectOpts {
-                prompt: Some(format!("Select {}", option_type)),
-                kind: None,
+    // Clone option_type to own it inside the closure
+    let option_type_owned: String = option_type.into();
+
+    let opts = ui::SelectOpts {
+        prompt: Some(format!("Select {}", option_type)),
+        kind: None,
+    };
+
+    ui::vim_ui_select(options, Some(opts), move |selection, _index| {
+        if let Some(selection) = selection {
+            let result = if selection == "(unset)" {
+                // Unset the config value
+                update_config(&option_type_owned, None, mode)
+            } else {
+                // Set the config value
+                update_config(&option_type_owned, Some(selection), mode)
             };
 
-            ui::vim_ui_select(options, Some(opts), move |selection, _index| {
-                if let Some(selection) = selection {
-                    let result = if selection == "(unset)" {
-                        // Unset the config value
-                        update_config(&option_type_owned, None, mode)
-                    } else {
-                        // Set the config value
-                        update_config(&option_type_owned, Some(selection), mode)
-                    };
-
-                    if let Err(e) = result {
-                        crate::error::notify_error(&e);
-                    }
-                }
-            })?;
-
-            Ok(())
+            if let Err(e) = result {
+                crate::utils::error(&e.to_string());
+            }
         }
-        Err(e) => Err(e),
-    }
+    })?;
+
+    Ok(())
 }
 
 /// Updates the AichatConfig with the selected value
@@ -227,12 +226,12 @@ fn update_config(option_type: &str, value: Option<String>, mode: Option<Mode>) -
 }
 
 /// Shows the current aichat configuration in a floating window
-pub fn show_current_config() -> nvim_oxi::Result<()> {
+pub fn show_current_config() -> Result<()> {
     // Get the current configuration
     let config = get_config();
 
     // Create a buffer for the window
-    let mut buffer = api::create_buf(false, true)?;
+    let mut buffer: Buffer = api::create_buf(false, true)?;
 
     // Prepare the content lines
     let mut lines = Vec::new();
@@ -269,7 +268,7 @@ pub fn show_current_config() -> nvim_oxi::Result<()> {
     buffer.set_lines(0..0, false, lines)?;
 
     // Make buffer read-only
-    let opts = OptionOpts::builder().scope(Local).buffer(&buffer).build();
+    let opts = OptionOpts::builder().scope(Local).buffer(buffer.clone()).build();
     api::set_option_value("modifiable", false, &opts)?;
     api::set_option_value("buftype", "nofile", &opts)?;
 
@@ -298,13 +297,13 @@ pub fn show_current_config() -> nvim_oxi::Result<()> {
         .build();
 
     // Open the window
-    let window = api::open_win(&buffer, true, &win_config)?;
+    let window: Window = api::open_win(&buffer, true, &win_config)?;
 
     // Set window options
     api::set_option_value(
         "cursorline",
         false,
-        &OptionOpts::builder().scope(Local).win(&window).build(),
+        &OptionOpts::builder().scope(Local).win(window).build(),
     )?;
 
     // Add a keymap to close the window with any key
