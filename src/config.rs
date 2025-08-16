@@ -269,7 +269,7 @@ pub fn show_current_config() -> nvim_oxi::Result<()> {
     buffer.set_lines(0..0, false, lines)?;
 
     // Make buffer read-only
-    let opts = OptionOpts::builder().scope(Local).buffer(&buffer).build();
+    let opts = OptionOpts::builder().scope(Local).buffer(buffer.clone()).build();
     api::set_option_value("modifiable", false, &opts)?;
     api::set_option_value("buftype", "nofile", &opts)?;
 
@@ -304,7 +304,7 @@ pub fn show_current_config() -> nvim_oxi::Result<()> {
     api::set_option_value(
         "cursorline",
         false,
-        &OptionOpts::builder().scope(Local).win(&window).build(),
+        &OptionOpts::builder().scope(Local).win(window).build(),
     )?;
 
     // Add a keymap to close the window with any key

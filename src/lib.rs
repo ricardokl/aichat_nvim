@@ -9,6 +9,7 @@ use nvim_oxi::{
 
 mod config;
 mod error;
+mod executor;
 mod job_runner;
 mod ui;
 mod utils;
@@ -17,12 +18,14 @@ fn aichat(args: CommandArgs) -> Result<()> {
     let line1 = args.line1;
     let line2 = args.line2;
     let mut buffer = api::get_current_buf();
+
     let ft = buffer
         .get_name()?
         .extension()
         .map(|x| x.to_string_lossy().to_string())
         .unwrap_or("".into());
-    let lines: Vec<nvim_oxi::String> = buffer.get_lines(line1 - 1..line2, true)?;
+
+    let lines: Vec<nvim_oxi::String> = buffer.get_lines(line1 - 1..line2, true)?.collect();
     let line = if lines.is_empty() {
         string!("")
     } else {
@@ -31,29 +34,40 @@ fn aichat(args: CommandArgs) -> Result<()> {
             .reduce(|acc, e| string!("{}\n{}", acc, e))
             .ok_or(api::Error::Other("No lines found".into()))?
     };
+
     let code = if line.is_empty() {
         String::new()
     } else {
-        format!("```{}
-{}```", ft, line.to_string())
+        format!("```{}\n{}```", ft, line.to_string())
     };
 
-    // Create input prompt and handle response
     if let Some(user_text) = ui::show_input_prompt("Aichat Prompt >")? {
-        utils::info("Sending to Aichat");
+        utils::info("Sending to Aichat...");
 
         let complete_prompt = format!("{}\n{}", user_text, code);
-        let result = match job_runner::run_aichat_command(&config::get_config(), &complete_prompt) {
-            Ok(result) => result,
-            Err(err) => {
-                error::notify_error(&err);
-                return Err(err.into());
-            }
+        let config = config::get_config().clone();
+
+        let work = move || {
+            job_runner::run_aichat_command(&config, &complete_prompt).map_err(|e| {
+                nvim_oxi::Error::Api(api::Error::Other(e.to_string()))
+            })
         };
 
-        let lines = result.split_terminator("\n");
-        buffer.set_lines(line1 - 1..line2, true, lines)?;
-        utils::info("Success");
+        let callback = move |result: nvim_oxi::Result<String>| {
+            match result {
+                Ok(aichat_output) => {
+                    let lines = aichat_output.split_terminator('\n').collect::<Vec<&str>>();
+                    buffer.set_lines(line1 - 1..line2, true, lines)?;
+                    utils::info("Aichat task completed successfully");
+                }
+                Err(err) => {
+                    utils::error(&err.to_string());
+                }
+            };
+            Ok(())
+        };
+
+        executor::run_async(work, callback);
     }
 
     Ok(())
