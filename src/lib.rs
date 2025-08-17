@@ -4,7 +4,8 @@ use nvim_oxi::{
         opts::CreateCommandOpts,
         types::{CommandArgs, CommandNArgs},
     },
-    string, Result,
+    conversion::ToObject,
+    string, Dictionary, Function, Result,
 };
 
 mod config;
@@ -53,8 +54,16 @@ fn aichat(args: CommandArgs) -> error::Result<()> {
     Ok(())
 }
 
+fn setup(config: Option<config::AichatConfig>) -> Result<()> {
+    if let Some(config) = config {
+        let mut global_config = config::get_config_mut();
+        *global_config = config;
+    }
+    Ok(())
+}
+
 #[nvim_oxi::plugin]
-fn aichat_nvim() -> Result<()> {
+fn aichat_nvim() -> Result<Dictionary> {
     // Create command to run Aichat with the selected text
     let aichat_cmd = |args| error::handle_error_unit(aichat(args));
     let _ = api::create_user_command(
@@ -89,5 +98,17 @@ fn aichat_nvim() -> Result<()> {
             .build(),
     )?;
 
-    Ok(())
+    let setup_fn: Function<Option<config::AichatConfig>, ()> =
+        Function::from_fn(|config: Option<config::AichatConfig>| -> Result<()> {
+            if let Err(err) = setup(config) {
+                api::err_writeln(&err.to_string());
+                return Err(err.into());
+            }
+            Ok(())
+        });
+
+    let setup_fn = setup_fn.to_object()?;
+    let exports = Dictionary::from_iter([("setup", setup_fn)]);
+
+    Ok(exports)
 }
