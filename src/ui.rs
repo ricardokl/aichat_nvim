@@ -5,6 +5,55 @@ use nvim_oxi::{
 };
 use std::sync::Arc;
 
+#[derive(Debug, Clone, Default)]
+pub struct InputOpts {
+    prompt: Option<String>,
+    default: Option<String>,
+    completion: Option<String>,
+}
+
+impl InputOpts {
+    /// Create new InputOpts with a prompt
+    pub fn with_prompt(prompt: impl Into<String>) -> Self {
+        Self {
+            prompt: Some(prompt.into()),
+            ..Default::default()
+        }
+    }
+
+    pub fn new(
+        prompt: impl Into<String>,
+        default: Option<impl Into<String>>,
+        completion: Option<impl Into<String>>,
+    ) -> Self {
+        Self {
+            prompt: Some(prompt.into()),
+            default: default.map(|d| d.into()),
+            completion: completion.map(|c| c.into()),
+        }
+    }
+}
+
+pub fn input(opts: InputOpts) -> Result<Option<Box<str>>> {
+    let mut dict = Dictionary::new();
+    if let Some(prompt) = opts.prompt {
+        dict.insert("prompt", Object::from(prompt));
+    }
+    if let Some(default) = opts.default {
+        dict.insert("default", Object::from(default));
+    }
+    if let Some(completion) = opts.completion {
+        dict.insert("completion", Object::from(completion));
+    }
+
+    let input: String = api::call_function("input", (dict,))?;
+    Ok(if input.is_empty() {
+        None
+    } else {
+        Some(input.into())
+    })
+}
+
 /// Displays an input prompt and returns user input, or None if cancelled
 ///
 /// # Arguments
@@ -13,12 +62,8 @@ use std::sync::Arc;
 /// # Returns
 /// * `Result<Option<String>>` - User input or None if cancelled
 pub fn show_input_prompt(prompt: &str) -> Result<Option<Box<str>>> {
-    let input: String = api::call_function("input", (prompt,))?;
-    Ok(if input.is_empty() {
-        None
-    } else {
-        Some(input.into())
-    })
+    let opts = InputOpts::with_prompt(prompt);
+    input(opts)
 }
 
 /// Options for vim.ui.select() wrapper
